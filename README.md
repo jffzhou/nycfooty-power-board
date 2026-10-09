@@ -57,11 +57,11 @@ Open `dashboard.html` directly in a browser. Each refresh writes:
 - `dashboard.html`: tabbed dashboard. Rankings (power table, rating paths),
   Teams (each team's results with margin vs expectation, upcoming forecasts,
   schedule strength so far and remaining, consistency, and a translucent "ghost"
-  forecast for the opponent it never plays, with opponent power), Standings
-  race (projected standings and weekly playoff odds with an actual-schedule /
-  full-round-robin toggle, strength of schedule played vs still to play, and
-  the pairings that never meet with a hypothetical forecast and their top-four
-  odds impact), Simulator (enter or pick
+  forecast for the opponent it never plays, with opponent power, then
+  league-wide strength of schedule played vs still to play and the pairings
+  that never meet with a hypothetical forecast and their top-four odds impact),
+  Standings race (projected standings and weekly playoff odds with an
+  actual-schedule / full-round-robin toggle), Simulator (enter or pick
   results for upcoming games and see first-place and top-four odds move;
   strengths stay at the latest real ratings and are never refit on entered
   results), Matches (weekly recap scored against point-in-time forecasts,
@@ -127,7 +127,11 @@ The Teams tab adds hindsight diagnostics from today's fit: average opponent
 power played and remaining, each result's capped margin minus the margin
 today's ratings expect, and consistency, the root-mean-square of those gaps.
 The weekly recap replays point-in-time pre-game odds with today's settings and
-scores them against a coin flip.
+scores them against a coin flip. Each result is labelled favorite won, draw, or
+upset (underdog won). A draw is half a result for each side, so a draw between
+even teams is unremarkable even though any specific draw is unlikely. The
+biggest upset is the underdog win with the largest favorite shortfall: the
+favorite's win chance plus half its draw chance, minus its actual result.
 
 The regular season is not a full round robin: 10 teams play 8 games each, so
 every team skips exactly one of its nine possible opponents (five unscheduled

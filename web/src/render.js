@@ -176,21 +176,30 @@ function renderRecap(recap) {
   const latest = recap.byWeek[recap.byWeek.length - 1];
   const season = recap.season;
   const verdict = season.modelLogLoss < season.coinFlipLogLoss ? 'ahead of' : 'behind';
+  const chips = { favorite: ['good', 'Favorite won'], draw: ['', 'Draw'], upset: ['bad', 'Upset'] };
+  const verdictText = (game) => {
+    if (game.verdict !== 'draw') return `Model gave this result <b>${percentage(game.actualProbability)}</b>`;
+    const [favorite, odds] = game.awayWin >= game.homeWin ? [game.awayTeam, game.awayWin] : [game.homeTeam, game.homeWin];
+    return `Favorite ${escapeHtml(favorite)} was <b>${percentage(odds)}</b> to win`;
+  };
   const gameRows = recap.games.map((game) => `<div class="recap-game${game.gameId === recap.biggestUpset ? ' upset' : ''}">
       <div class="recap-score"><span>${escapeHtml(game.awayTeam)}</span><strong>${game.awayScore}&ndash;${game.homeScore}</strong><span>${escapeHtml(game.homeTeam)}</span></div>
       <div class="probability-bar"><span class="away" style="width:${percentage(game.awayWin, 1)}"></span><span class="draw" style="width:${percentage(game.draw, 1)}"></span><span class="home" style="width:${percentage(game.homeWin, 1)}"></span></div>
-      <div class="recap-verdict"><span class="status-chip ${game.favoriteWon ? 'good' : 'bad'}">${game.favoriteWon ? 'Favorite won' : 'Upset'}</span>Model gave this result <b>${percentage(game.actualProbability)}</b></div>
+      <div class="recap-verdict"><span class="status-chip ${chips[game.verdict][0]}">${chips[game.verdict][1]}</span>${verdictText(game)}</div>
     </div>`).join('');
-  const weekRows = recap.byWeek.map((week) => `<tr><td>W${week.week}</td><td>${week.favoritesWon} of ${week.games}</td><td>${week.modelLogLoss.toFixed(3)}</td><td>${week.coinFlipLogLoss.toFixed(3)}</td></tr>`).join('');
+  const weekRows = recap.byWeek.map((week) => `<tr><td>W${week.week}</td><td>${week.favoritesWon}&ndash;${week.draws}&ndash;${week.upsets}</td><td>${week.modelLogLoss.toFixed(3)}</td><td>${week.coinFlipLogLoss.toFixed(3)}</td></tr>`).join('');
+  const upsetHeadline = upset
+    ? `<strong>${escapeHtml(upset.awayTeam)} ${upset.awayScore}&ndash;${upset.homeScore} ${escapeHtml(upset.homeTeam)}</strong><small>${percentage(upset.actualProbability)} pre-game</small>`
+    : '<strong>None</strong><small>Every favorite won or drew</small>';
   container.innerHTML = `
     <div class="recap-headline">
-      <div><span>Favorites won</span><strong>${latest.favoritesWon} of ${latest.games}</strong></div>
-      <div><span>Biggest upset</span><strong>${escapeHtml(upset.awayTeam)} ${upset.awayScore}&ndash;${upset.homeScore} ${escapeHtml(upset.homeTeam)}</strong><small>${percentage(upset.actualProbability)} pre-game</small></div>
-      <div><span>Season so far</span><strong>Model ${verdict} a coin flip</strong><small>${season.modelLogLoss.toFixed(3)} vs ${season.coinFlipLogLoss.toFixed(3)} log loss (lower is better), ${season.favoritesWon} of ${season.games} favorites won</small></div>
+      <div><span>Favorites won</span><strong>${latest.favoritesWon} of ${latest.games}</strong><small>${latest.draws} drawn, ${latest.upsets} lost</small></div>
+      <div><span>Biggest upset</span>${upsetHeadline}</div>
+      <div><span>Season so far</span><strong>Model ${verdict} a coin flip</strong><small>${season.modelLogLoss.toFixed(3)} vs ${season.coinFlipLogLoss.toFixed(3)} log loss (lower is better); favorites won ${season.favoritesWon}, drew ${season.draws}, lost ${season.upsets}</small></div>
     </div>
     <div class="recap-body">
       <div class="recap-games">${gameRows}</div>
-      <div class="table-wrap"><table class="recap-table"><thead><tr><th>Week</th><th>Favorites won</th><th>Model</th><th>Coin flip</th></tr></thead><tbody>${weekRows}</tbody></table></div>
+      <div class="table-wrap"><table class="recap-table"><thead><tr><th>Week</th><th>Favorites W&ndash;D&ndash;L</th><th>Model</th><th>Coin flip</th></tr></thead><tbody>${weekRows}</tbody></table></div>
     </div>`;
 }
 

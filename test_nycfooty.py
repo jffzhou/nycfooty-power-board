@@ -336,6 +336,30 @@ class DashboardDataTests(unittest.TestCase):
         self.assertGreater(skipped["loss"], skipped["win"])
         self.assertEqual([entry["kind"] for entry in schedules["A"]], ["result", "result", "upcoming"])
 
+    def test_recap_week_with_even_draw_and_underdog_win(self) -> None:
+        """A draw between even teams is not an upset, even though draws are individually unlikely."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        next_week = fixture.played_at + timedelta(days=7)
+        games = [
+            replace(fixture, game_id="1", away_team="A", home_team="B", away_score=1, home_score=0),
+            replace(fixture, game_id="2", away_team="C", home_team="D", away_score=1, home_score=1),
+            replace(fixture, game_id="upset", week=2, played_at=next_week, away_team="B", home_team="A", away_score=1, home_score=0),
+            replace(fixture, game_id="draw", week=2, played_at=next_week, away_team="D", home_team="C", away_score=2, home_score=2),
+        ]
+
+        recap = build_dashboard_data(
+            games,
+            [],
+            [],
+            generated_at=datetime(2026, 1, 1),
+            simulations=1,
+        )["recap"]
+
+        rows = {row["gameId"]: row for row in recap["games"]}
+        self.assertLess(rows["draw"]["actualProbability"], rows["upset"]["actualProbability"])
+        self.assertEqual((rows["draw"]["verdict"], rows["upset"]["verdict"]), ("draw", "upset"))
+        self.assertEqual(recap["biggestUpset"], "upset")
+
 
 class SeasonForecastTests(unittest.TestCase):
     def test_seeded_forecast_is_reproducible(self) -> None:

@@ -67,12 +67,10 @@
       <div class="team-summary" id="team-summary"></div>
       <div class="team-games" id="team-games"></div>
     </section>
-    </div>
 
-    <div class="tab-panel" id="panel-standings" role="tabpanel" aria-labelledby="tab-standings">
     <section>
       <div class="section-head">
-        <div><span class="kicker">Schedule</span><h2>Strength of schedule</h2></div>
+        <div><span class="kicker">All teams</span><h2>Strength of schedule</h2></div>
         <p class="section-note">Average power rating (today's) of the opponents each team has played and still has to play. 5.0 is league average. Sorted by toughest games left.</p>
       </div>
       <div class="table-wrap"><table>
@@ -83,7 +81,7 @@
 
     <section>
       <div class="section-head">
-        <div><span class="kicker">Schedule</span><h2>Pairings that never meet</h2></div>
+        <div><span class="kicker">All teams</span><h2>Pairings that never meet</h2></div>
         <p class="section-note">Each team skips one opponent. The forecast is for a hypothetical game; top-4 odds compare the real schedule with a full round robin.</p>
       </div>
       <div class="table-wrap"><table>
@@ -91,7 +89,9 @@
         <tbody id="gaps-body"></tbody>
       </table></div>
     </section>
+    </div>
 
+    <div class="tab-panel" id="panel-standings" role="tabpanel" aria-labelledby="tab-standings">
     <section>
       <div class="section-head">
         <div><span class="kicker" id="simulation-label"></span><h2>Projected final standings</h2></div>
@@ -225,7 +225,7 @@
       <p>Margins are capped at 4 goals, but one lopsided score can still move a team with few rated games a long way. Check the 80% range and the Teams tab before reading much into a high rank built on a single blowout.</p>
       <p>Parameters (margin cap, shrinkage, draw prior, forecast noise) were tuned on 2026-10-09 with a walk-forward backtest over 12 archived NYC Footy leagues. Through Week 6 this season's results have been unusually inconsistent, so treat individual match probabilities with caution.</p>
       <p>Playoff odds assume the top four play 1st vs 4th and 2nd vs 3rd, then a final, all at the shared venue with a drawn game settled 50/50. Bracket odds are computed exactly for each simulated final table. Clinched and eliminated flags count points only, with ties against the team. They are exact once at most 10 games remain, and conservative before that.</p>
-      <p>Consistency is the typical gap, in goals (capped at 4), between a team's results and what today's ratings expect. It is a hindsight measure. The weekly recap scores point-in-time forecasts: each game is predicted only from results on earlier dates.</p>
+      <p>Consistency is the typical gap, in goals (capped at 4), between a team's results and what today's ratings expect. It is a hindsight measure. The weekly recap scores point-in-time forecasts: each game is predicted only from results on earlier dates. A draw counts as half a result for each side, so it is never an upset; the biggest upset is the underdog win where the favorite had the highest expected result (win chance plus half the draw chance).</p>
     </section>
     </div>
   </main>

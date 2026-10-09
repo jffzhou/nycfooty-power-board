@@ -53,13 +53,27 @@ def _weekly_recap(games: list[Game]) -> dict[str, object] | None:
         return None
     week_of = {game.game_id: game.week for game in games}
 
-    def favorite_won(prediction) -> bool:
-        return max(range(3), key=prediction.probabilities.__getitem__) == prediction.outcome_index
+    def verdict(prediction) -> str:
+        if prediction.outcome_index == 1:
+            return "draw"
+        favorite_index = 0 if prediction.probabilities[0] >= prediction.probabilities[2] else 2
+        return "favorite" if prediction.outcome_index == favorite_index else "upset"
+
+    def favorite_shortfall(prediction) -> float:
+        """Favorite's expected minus actual result, scoring a draw as half a win (Elo convention)."""
+        away, draw, home = prediction.probabilities
+        favorite_is_away = away >= home
+        expected = (away if favorite_is_away else home) + 0.5 * draw
+        actual = {0: 1.0, 1: 0.5, 2: 0.0}[prediction.outcome_index]
+        return expected - (actual if favorite_is_away else 1.0 - actual)
 
     def summary(selected) -> dict[str, float]:
+        verdicts = [verdict(prediction) for prediction in selected]
         return {
             "games": len(selected),
-            "favoritesWon": sum(favorite_won(prediction) for prediction in selected),
+            "favoritesWon": verdicts.count("favorite"),
+            "draws": verdicts.count("draw"),
+            "upsets": verdicts.count("upset"),
             "modelLogLoss": fmean(prediction.log_loss for prediction in selected),
             "coinFlipLogLoss": fmean(prediction.baseline_log_loss for prediction in selected),
         }
@@ -77,14 +91,16 @@ def _weekly_recap(games: list[Game]) -> dict[str, object] | None:
             "draw": prediction.probabilities[1],
             "homeWin": prediction.probabilities[2],
             "actualProbability": prediction.probabilities[prediction.outcome_index],
-            "favoriteWon": favorite_won(prediction),
+            "verdict": verdict(prediction),
+            "favoriteShortfall": favorite_shortfall(prediction),
         }
         for prediction in latest
     ]
+    upsets = [row for row in games_rows if row["verdict"] == "upset"]
     return {
         "week": weeks[-1],
         "games": games_rows,
-        "biggestUpset": min(games_rows, key=lambda row: row["actualProbability"])["gameId"],
+        "biggestUpset": max(upsets, key=lambda row: row["favoriteShortfall"])["gameId"] if upsets else None,
         "season": summary(predictions),
         "byWeek": [
             {
