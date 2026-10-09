@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="NYC Footy Two Bridges ratings and forecasts">
+  <title>Two Bridges Power Board</title>
+</head>
+<body>
+  <header class="masthead">
+    <div class="shell">
+      <p class="eyebrow">NYC Footy / Fall 2026 / P4-P5</p>
+      <h1>Two Bridges Power Board</h1>
+      <p class="subtitle" id="subtitle"></p>
+      <a class="source-link" id="source-link">LeagueApps source</a>
+    </div>
+  </header>
+
+  <div class="metrics" aria-label="League snapshot">
+    <div class="metric"><strong id="completed-count"></strong><span>Matches played</span></div>
+    <div class="metric"><strong id="upcoming-count"></strong><span>Fixtures remaining</span></div>
+    <div class="metric"><strong id="goal-count"></strong><span>Goals recorded</span></div>
+    <div class="metric"><strong id="draw-rate"></strong><span>Model draw rate</span></div>
+  </div>
+
+  <nav class="tabs" aria-label="Dashboard sections">
+    <div class="shell tab-list" role="tablist">
+      <button type="button" role="tab" id="tab-rankings" data-tab="rankings" aria-controls="panel-rankings" aria-selected="true">Rankings</button>
+      <button type="button" role="tab" id="tab-teams" data-tab="teams" aria-controls="panel-teams" aria-selected="false">Teams</button>
+      <button type="button" role="tab" id="tab-standings" data-tab="standings" aria-controls="panel-standings" aria-selected="false">Standings race</button>
+      <button type="button" role="tab" id="tab-matches" data-tab="matches" aria-controls="panel-matches" aria-selected="false">Matches</button>
+      <button type="button" role="tab" id="tab-graph" data-tab="graph" aria-controls="panel-graph" aria-selected="false">Result graph</button>
+      <button type="button" role="tab" id="tab-method" data-tab="method" aria-controls="panel-method" aria-selected="false">Method</button>
+    </div>
+  </nav>
+
+  <main class="shell">
+    <div class="tab-panel" id="panel-rankings" role="tabpanel" aria-labelledby="tab-rankings">
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Current form</span><h2>Power rankings</h2></div>
+        <p class="section-note">5.0 is league average; +1.0 means one expected goal above average. Click a team for its schedule.</p>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Rank</th><th>Team</th><th>Power / 80% range</th><th>W-L-T</th><th>GD</th><th>Model strength</th></tr></thead>
+        <tbody id="rankings-body"></tbody>
+      </table></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Movement</span><h2>Rating paths</h2></div>
+        <p class="section-note">Click a team name or line to bold it in every chart; click it again or empty space to reset.</p>
+      </div>
+      <div class="chart-panel"><div class="chart-canvas"><canvas id="rating-chart"></canvas></div></div>
+    </section>
+    </div>
+
+    <div class="tab-panel" id="panel-teams" role="tabpanel" aria-labelledby="tab-teams">
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Team view</span><h2>Schedule and forecasts</h2></div>
+        <p class="section-note">Opponent power is today's rating. The translucent card is the opponent the schedule skips, forecast as a hypothetical neutral-site game.</p>
+      </div>
+      <div class="team-picker" id="team-picker" role="group" aria-label="Choose a team"></div>
+      <div class="team-summary" id="team-summary"></div>
+      <div class="team-games" id="team-games"></div>
+    </section>
+    </div>
+
+    <div class="tab-panel" id="panel-standings" role="tabpanel" aria-labelledby="tab-standings">
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Schedule balance</span><h2>Unscheduled opponents</h2></div>
+        <p class="section-note">Pairings the regular-season schedule never plays. Odds compare the actual schedule with a full round robin.</p>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Team</th><th>Never plays</th><th>Top 4: schedule &rarr; round robin</th><th>Finish 1st: schedule &rarr; round robin</th></tr></thead>
+        <tbody id="gaps-body"></tbody>
+      </table></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div><span class="kicker" id="simulation-label"></span><h2>Projected final standings</h2></div>
+        <div class="scenario-toggle" role="group" aria-label="Projection schedule">
+          <button type="button" data-scenario="schedule" aria-pressed="true">Actual schedule</button>
+          <button type="button" data-scenario="roundRobin" aria-pressed="false">Full round robin</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Rank</th><th>Team</th><th>Now</th><th>Expected remaining</th><th>Projected points</th><th>Projected W-L-T</th><th>Avg finish</th><th>Finish 1st</th><th>Top 4</th></tr></thead>
+        <tbody id="projection-body"></tbody>
+      </table></div>
+      <p class="projection-note"><span class="scenario-note"></span> Top four advance. Strength rank and standings forecast answer different questions: already-earned points remain banked.</p>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Race history</span><h2>Playoff odds by week</h2></div>
+        <div class="scenario-toggle" role="group" aria-label="Playoff odds schedule">
+          <button type="button" data-scenario="schedule" aria-pressed="true">Actual schedule</button>
+          <button type="button" data-scenario="roundRobin" aria-pressed="false">Full round robin</button>
+        </div>
+      </div>
+      <p class="section-note odds-note"><b>Point-in-time</b>: each week's odds refit strengths using only results through that week, so they show what the model would have said then. <b>Hindsight</b>: today's strengths applied to each week's banked points, which no one could have forecast at the time. <span class="scenario-note"></span></p>
+      <div class="odds-grid">
+        <div class="chart-panel"><h3>Top 4 &middot; point-in-time</h3><div class="chart-canvas"><canvas id="top-four-chart"></canvas></div></div>
+        <div class="chart-panel"><h3>Top 4 &middot; hindsight</h3><div class="chart-canvas"><canvas id="top-four-fixed-chart"></canvas></div></div>
+        <div class="chart-panel"><h3>Finish 1st &middot; point-in-time</h3><div class="chart-canvas"><canvas id="first-chart"></canvas></div></div>
+        <div class="chart-panel"><h3>Finish 1st &middot; hindsight</h3><div class="chart-canvas"><canvas id="first-fixed-chart"></canvas></div></div>
+      </div>
+    </section>
+    </div>
+
+    <div class="tab-panel" id="panel-matches" role="tabpanel" aria-labelledby="tab-matches">
+    <section>
+      <div class="control-row">
+        <div><span class="kicker">Forecast</span><h2>Upcoming fixtures</h2></div>
+        <label>Schedule window<select id="week-filter"></select></label>
+      </div>
+      <div class="fixtures" id="fixtures"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Head to head</span><h2>Matchup lab</h2></div>
+        <p class="section-note">Neutral field; current ratings.</p>
+      </div>
+      <div class="lab">
+        <label>First team<select id="team-a"></select></label>
+        <span class="lab-vs">vs</span>
+        <label>Second team<select id="team-b"></select></label>
+        <div class="lab-output">
+          <div class="lab-names"><strong id="lab-a-name"></strong><span>Draw</span><strong id="lab-b-name"></strong></div>
+          <div class="probability-bar"><span class="away" id="lab-a-bar"></span><span class="draw" id="lab-draw-bar"></span><span class="home" id="lab-b-bar"></span></div>
+          <div class="lab-values"><span><b id="lab-a-value"></b> win</span><span><b id="lab-draw-value"></b></span><span><b id="lab-b-value"></b> win</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><div><span class="kicker">Scoreboard</span><h2>Completed matches</h2></div><p class="section-note">Newest first.</p></div>
+      <div class="results-wrap"><table><thead><tr><th>Date</th><th>Away</th><th>Score</th><th>Home</th></tr></thead><tbody id="results-body"></tbody></table></div>
+    </section>
+    </div>
+
+    <div class="tab-panel" id="panel-graph" role="tabpanel" aria-labelledby="tab-graph">
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Head-to-head structure</span><h2>Result graph</h2></div>
+        <p class="section-note">Winner to loser. Pan, zoom, or drag a team.</p>
+      </div>
+      <div class="graph-panel">
+        <div class="graph-toolbar">
+          <div class="graph-tools">
+            <div class="graph-mode" role="group" aria-label="Graph mode">
+              <button type="button" class="active" data-graph-mode="results" aria-pressed="true">Results</button>
+              <button type="button" data-graph-mode="flow" aria-pressed="false">Dominance flow</button>
+            </div>
+            <button type="button" class="graph-label-toggle" id="graph-label-toggle" aria-pressed="false">Show all scores</button>
+            <div class="graph-key" id="result-key"><span><i></i>Width = log(1 + goal margin)</span><span><i class="forfeit-key"></i>Zero-weight forfeit</span></div>
+            <div class="graph-key" id="flow-key" hidden><span><i class="flow-key"></i>Credit flows loser to winner</span><span>60% transferred / 40% retained</span></div>
+          </div>
+          <span class="cycle-status" id="cycle-status"></span>
+        </div>
+        <div id="result-graph" aria-label="Directed winner-to-loser result graph"></div>
+        <p class="graph-caption" id="graph-caption">Hover a score for match details.</p>
+        <div class="topology-flow" id="topology-flow"></div>
+        <div class="flow-ranking" id="flow-ranking" hidden></div>
+      </div>
+    </section>
+    </div>
+
+    <div class="tab-panel" id="panel-method" role="tabpanel" aria-labelledby="tab-method">
+    <section class="method">
+      <h2>Model notes</h2>
+      <p>Ratings jointly fit opponent-adjusted score margins, each capped at 4 goals, with half an average-performance pseudo-game per team. Approximate 80% ranges come from the Gaussian-ridge covariance with two-goal observation noise. The September 3 forfeit remains in official points and goal totals but has zero strength weight.</p>
+      <p>Result-edge width is logarithmic goal margin. Dominance flow is a separate résumé measure: each team starts with one credit, retains 40%, and transfers 60% backward to its winners, split by logarithmic goal margin. The graph condenses strongly connected components first; forfeits have zero flow.</p>
+      <p>Simulations carry official points forward, which is why a lower-rated team with banked wins can retain meaningful playoff odds. Forecasts currently condition on best-fit strengths; they do not propagate rating-parameter uncertainty.</p>
+      <p>The schedule is not a full round robin: each team skips one possible opponent. Ratings are opponent-adjusted, so a skipped opponent does not bias strength, and the default projection simulates only the fixtures actually scheduled, so each team's easier or harder remaining slate is already priced in. The round-robin toggle adds one hypothetical neutral-site fixture per skipped pairing and reruns the same simulations.</p>
+      <p>Margins are capped at 4 goals, but one lopsided score can still move a team with few rated games a long way. Check the 80% range and the Teams tab before reading much into a high rank built on a single blowout.</p>
+      <p>Parameters (margin cap, shrinkage, draw prior, forecast noise) were tuned on 2026-10-09 with a walk-forward backtest over 12 archived NYC Footy leagues. Through Week 6 this season's results have been unusually inconsistent, so treat individual match probabilities with caution.</p>
+    </section>
+    </div>
+  </main>
+
+  <footer><div class="shell" id="generated-at"></div></footer>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

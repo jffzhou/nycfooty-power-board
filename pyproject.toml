@@ -1,0 +1,9 @@
+[project]
+name = "nycfooty-results"
+version = "0.1.0"
+description = "Scrape and visualize NYC Footy league results"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false

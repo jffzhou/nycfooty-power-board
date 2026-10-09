@@ -1,0 +1,7 @@
+league_id,league,matches,current_log_loss,selected_log_loss,baseline_log_loss
+4981886,2026 Summer · Downtown Brooklyn · Saturdays,18,1.021,0.9985,1.0408
+4981937,2026 Summer · Chinatown · Sundays,21,0.7712,0.7564,0.9714
+4987937,2026 Summer · Williamsburg · Thursdays,18,0.9185,0.883,0.9796
+4789879,2026 Winter · Williamsburg · Saturdays,15,0.722,0.6637,0.8237
+4980765,2026 Summer · Upper East Side · Tuesdays,20,0.5093,0.5594,0.8951
+4783983,2026 Winter · West Village · Sundays,24,0.9089,0.8255,1.0286

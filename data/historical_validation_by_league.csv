@@ -1,0 +1,7 @@
+league_id,league,teams,training_matches,training_games_min,training_games_max,scored_holdout_matches,excluded_holdout_forfeits,log_loss,baseline_log_loss,brier_score,baseline_brier_score,outcome_accuracy_pct,margin_mae,baseline_margin_mae,strength_rank_correlation,week3_table_rank_correlation,projected_rank_correlation,projected_rank_mae,champion_correct,actual_champion_probability_pct,top_four_overlap
+4978774,2026 Summer · Lower East Side · Mondays,6,9,3,3,13,2,1.3688,1.0918,0.7627,0.659,46.15,3.933,4.0,0.371,0.829,0.829,0.667,True,50.38,3
+4688994,2025 Fall · Harlem Riverbank · Wednesdays,10,14,2,3,26,0,0.6508,0.941,0.3658,0.5781,69.23,2.409,3.423,0.818,0.794,0.855,1.4,False,31.28,3
+4887792,2026 Spring · Chinatown · Sundays,6,9,3,3,14,1,0.8244,0.8992,0.4654,0.552,71.43,2.573,3.214,0.886,0.886,0.943,0.333,True,41.31,3
+4887195,2026 Spring · Brooklyn Heights · Saturdays,6,9,3,3,15,0,1.2396,1.0183,0.7433,0.6181,46.67,3.118,2.867,0.657,0.6,0.657,1.0,True,97.52,3
+4783265,2026 Winter · Chinatown · Sundays,5,7,2,3,12,1,0.9099,1.0603,0.5435,0.6423,41.67,1.805,2.0,0.0,0.9,0.1,1.2,True,98.95,3
+5029631,2026 Summer · Two Bridges · Tuesdays,5,6,2,3,14,0,1.0139,1.0068,0.5744,0.6133,57.14,1.96,2.357,0.7,0.5,0.9,0.4,True,67.97,4

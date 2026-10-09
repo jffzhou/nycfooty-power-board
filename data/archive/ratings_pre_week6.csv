@@ -1,0 +1,11 @@
+rank,team,power_rating,elo,games,rated_games,wins,losses,ties,goals_for,goals_against,goal_difference,expected_margin_vs_average,strength_standard_error,power_80_low,power_80_high
+1,The Other Secret Team,7.3,1727.1,3,2,1,2,0,11,6,5,2.271,1.051,5.92,8.62
+2,Pacific Penguins FC,6.8,1679.9,5,5,4,1,0,18,5,13,1.799,0.841,5.72,7.88
+3,Gowanus Canal Shrimps,5.3,1531.4,4,4,2,2,0,6,4,2,0.314,0.89,4.17,6.45
+4,Runny Gyoks FC,5.1,1506.1,4,4,3,1,0,10,7,3,0.061,0.889,3.92,6.2
+5,Off in the shower,4.9,1487.8,5,5,3,2,0,10,11,-1,-0.122,0.838,3.8,5.95
+6,Say My Neymar,4.8,1476.0,4,4,2,2,0,8,8,0,-0.24,0.891,3.62,5.9
+7,FA Rat United FC,4.5,1449.8,3,3,1,2,0,5,5,0,-0.502,0.958,3.27,5.73
+8,Rat City FC,4.3,1428.5,4,4,2,2,0,7,13,-6,-0.715,0.893,3.14,5.43
+9,Fearless United,3.7,1368.8,4,3,1,3,0,3,8,-5,-1.312,0.958,2.46,4.92
+10,HEYTEA FC,3.4,1344.5,4,4,1,3,0,1,12,-11,-1.555,0.89,2.3,4.59
