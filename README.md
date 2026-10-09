@@ -5,24 +5,52 @@ This project fetches the public LeagueApps schedule and standings for league
 remaining fixture's win/draw/win probabilities, and builds a standalone HTML
 dashboard.
 
+## Install and setup
+
+Requirements:
+
+- `git`
+- [uv](https://docs.astral.sh/uv/getting-started/installation/), which also
+  installs Python 3.12 from `.python-version`. There are no third-party Python
+  packages.
+- Node.js 22.12 or newer. `.node-version` pins 24.21.0 for nvm, fnm, or Volta.
+
+```bash
+git clone https://github.com/jffzhou/nycfooty-power-board.git
+cd nycfooty-power-board
+uv sync                       # create .venv with Python 3.12
+npm ci                        # install the pinned frontend packages
+uv run python -m unittest -v  # optional: run the tests
+uv run python -m nycfooty     # fetch live data, simulate, build dashboard.html
+```
+
+Then open `dashboard.html` in a browser. If the browser blocks local files,
+serve the folder with `uv run python -m http.server 8000` and open
+`http://127.0.0.1:8000/dashboard.html`.
+
+The refresh only reads public LeagueApps pages, needs no account or API key,
+and takes about 30 seconds. `web/generated-data.json` is not committed, so run
+the refresh once before using `npm run build` or `npm run dev` directly. The
+build uses a project-local Node in `.node/bin` when present, otherwise `npm`
+from `PATH`.
+
+## Hosting
+
+GitHub Pages serves the repository root. Enable it under **Settings → Pages →
+Deploy from a branch → `main` / `(root)`**. The root `index.html` forwards to
+`dashboard.html`, keeping tab links such as `#teams`, so the short link
+`https://jffzhou.github.io/nycfooty-power-board/` opens the dashboard.
+`.nojekyll` makes Pages serve the files as-is. Commit and push the regenerated
+`dashboard.html` after each refresh to update the site.
+
 ## Refresh
 
 ```bash
-cd ~/project/scratch/nycfooty
-uv sync
 uv run python -m nycfooty
 ```
 
 The refresh command fetches the data, runs 25,000 seeded season simulations,
 exports CSV/JSON, and invokes Vite to rebuild the standalone dashboard.
-
-Node `24.21.0` is installed locally in `.node/`. To reinstall the pinned npm
-dependencies from `package-lock.json`:
-
-```bash
-export PATH="$PWD/.node/bin:$PATH"
-npm ci
-```
 
 Open `dashboard.html` directly in a browser. Each refresh writes:
 
