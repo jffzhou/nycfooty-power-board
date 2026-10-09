@@ -58,8 +58,10 @@ Open `dashboard.html` directly in a browser. Each refresh writes:
   Teams (each team's results with margin vs expectation, upcoming forecasts,
   schedule strength so far and remaining, consistency, and a translucent "ghost"
   forecast for the opponent it never plays, with opponent power), Standings
-  race (unscheduled opponents, projected standings and weekly playoff odds with
-  an actual-schedule / full-round-robin toggle), Simulator (enter or pick
+  race (projected standings and weekly playoff odds with an actual-schedule /
+  full-round-robin toggle, strength of schedule played vs still to play, and
+  the pairings that never meet with a hypothetical forecast and their top-four
+  odds impact), Simulator (enter or pick
   results for upcoming games and see first-place and top-four odds move;
   strengths stay at the latest real ratings and are never refit on entered
   results), Matches (weekly recap scored against point-in-time forecasts,
@@ -100,8 +102,8 @@ least evidence.
 Three-way forecasts use the fitted score-margin difference and a draw rate
 regularized toward a 17% prior over 20 pseudo-games. The margin noise is the
 draw-implied value scaled by 1.2, and the season simulations use the same
-noise. Home and away are treated
-as neutral because all matches use the shared venue. Early-season estimates are
+noise. There is no home advantage: every game is played at the same field.
+Early-season estimates are
 directional and should not be treated as betting odds.
 Current fixture and standings forecasts condition on the best-fit strengths;
 they do not yet integrate rating-parameter uncertainty.
@@ -133,7 +135,7 @@ pairings). Ratings are opponent-adjusted, so a skipped opponent does not bias
 strength. The default projection simulates only the fixtures actually
 scheduled, so each team's remaining slate is already priced in. The
 round-robin scenario (`complete_round_robin`) appends one hypothetical
-neutral-site fixture per unscheduled pairing and reruns the same seeded
+fixture per unscheduled pairing and reruns the same seeded
 simulations; the dashboard toggle swaps the projected table and the four
 weekly-odds charts between the two scenarios. Round-robin teams play nine
 games, so compare odds, not raw points, across scenarios.

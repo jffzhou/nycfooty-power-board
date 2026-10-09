@@ -105,28 +105,62 @@ function oddsShift(before, after) {
   return `${percentage(before)} &rarr; ${percentage(after)} <span class="shift ${direction}">${signed(change)} pts</span>`;
 }
 
-function scheduleStrength(power, rank, count) {
+function scheduleCell(power, rank, count) {
   return power === null
-    ? '<span class="sample">No games</span>'
+    ? '<span class="sample">None</span>'
     : `<strong>${power.toFixed(1)}</strong><span class="sample">#${rank} hardest of ${count}</span>`;
 }
 
-function renderScheduleGaps(gaps, teams) {
-  const byName = new Map(teams.map((team) => [team.name, team]));
+function renderScheduleStrength(teams) {
   const playedCount = teams.filter((team) => team.playedScheduleRank !== null).length;
   const remainingCount = teams.filter((team) => team.remainingScheduleRank !== null).length;
-  document.querySelector('#gaps-body').innerHTML = gaps.map((row) => {
-    const team = byName.get(row.team);
-    const opponents = row.unplayedOpponents.length
-      ? row.unplayedOpponents.map((opponent) => `${teamLink(opponent.team)}<span class="sample">#${opponent.rank} by power &middot; ${opponent.power.toFixed(1)}</span>`).join('')
-      : '<span class="sample">Plays everyone</span>';
+  const rows = [...teams].sort((first, second) => (
+    (second.remainingOpponentPower ?? -Infinity) - (first.remainingOpponentPower ?? -Infinity)
+  ));
+  document.querySelector('#sos-body').innerHTML = rows.map((team) => {
+    let outlook = '<span class="sample">–</span>';
+    if (team.remainingOpponentPower !== null && team.playedOpponentPower !== null) {
+      const change = team.remainingOpponentPower - team.playedOpponentPower;
+      outlook = Math.abs(change) < 0.25
+        ? '<span class="status-chip">About the same</span>'
+        : `<span class="status-chip ${change > 0 ? 'bad' : 'good'}">${change > 0 ? 'Harder' : 'Easier'} ahead</span><span class="sample">${signed(change, 1)} vs so far</span>`;
+    }
     return `<tr>
-      <td>${teamLink(row.team)}<span class="sample">Plays ${row.scheduledOpponentCount} of ${row.possibleOpponentCount} opponents &middot; power ${row.power.toFixed(1)}</span></td>
-      <td>${opponents}</td>
-      <td>${scheduleStrength(team.playedOpponentPower, team.playedScheduleRank, playedCount)}</td>
-      <td>${scheduleStrength(team.remainingOpponentPower, team.remainingScheduleRank, remainingCount)}</td>
-      <td class="record">${oddsShift(row.scheduleTopFour, row.roundRobinTopFour)}</td>
-      <td class="record">${oddsShift(row.scheduleFirst, row.roundRobinFirst)}</td>
+      <td>${teamLink(team.name)}<span class="sample">${team.remainingGames} games left</span></td>
+      <td>${scheduleCell(team.playedOpponentPower, team.playedScheduleRank, playedCount)}</td>
+      <td>${scheduleCell(team.remainingOpponentPower, team.remainingScheduleRank, remainingCount)}</td>
+      <td>${outlook}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderScheduleGaps(gaps, matchups) {
+  const byTeam = new Map(gaps.map((row) => [row.team, row]));
+  const seen = new Set();
+  const pairs = [];
+  for (const row of gaps) {
+    for (const opponent of row.unplayedOpponents) {
+      const key = [row.team, opponent.team].sort().join('|');
+      if (!seen.has(key)) {
+        seen.add(key);
+        pairs.push([row.team, opponent.team].sort((a, b) => byTeam.get(b).power - byTeam.get(a).power));
+      }
+    }
+  }
+  pairs.sort((a, b) => byTeam.get(b[0]).power - byTeam.get(a[0]).power);
+  const teamOdds = (team) => {
+    const row = byTeam.get(team);
+    return `<div class="gap-odds"><span>${escapeHtml(team)}</span>${oddsShift(row.scheduleTopFour, row.roundRobinTopFour)}</div>`;
+  };
+  document.querySelector('#gaps-body').innerHTML = pairs.map(([first, second]) => {
+    const [firstWin, draw, secondWin] = matchups[first][second];
+    return `<tr>
+      <td>${teamLink(first)}<span class="sample">power ${byTeam.get(first).power.toFixed(1)}</span>${teamLink(second)}<span class="sample">power ${byTeam.get(second).power.toFixed(1)}</span></td>
+      <td class="gap-forecast">
+        <div class="probability-bar"><span class="away" style="width:${percentage(firstWin, 1)}"></span><span class="draw" style="width:${percentage(draw, 1)}"></span><span class="home" style="width:${percentage(secondWin, 1)}"></span></div>
+        <div class="probability-labels"><span><b>${percentage(firstWin)}</b> ${escapeHtml(first)}</span><span><b>${percentage(draw)}</b> draw</span><span><b>${percentage(secondWin)}</b> ${escapeHtml(second)}</span></div>
+      </td>
+      <td>${teamOdds(first)}${teamOdds(second)}</td>
     </tr>`;
   }).join('');
 }
@@ -163,7 +197,7 @@ function renderRecap(recap) {
 const TEAM_GAME_GROUPS = [
   ['result', 'Played', ''],
   ['upcoming', 'Upcoming', 'Forecast from current ratings'],
-  ['ghost', 'Never scheduled', 'Hypothetical neutral-site forecast'],
+  ['ghost', 'Never scheduled', 'Hypothetical forecast'],
 ];
 const OUTCOME_CLASSES = { W: 'win', L: 'loss', D: 'draw' };
 
@@ -171,7 +205,6 @@ function teamGameRow(entry) {
   const when = entry.kind === 'ghost'
     ? '<span class="ghost-label">Not on the schedule</span>'
     : `<span class="week-chip">W${entry.week}</span>${entry.dateLabel}`;
-  const venue = entry.side === 'Away' ? 'at' : 'vs';
   const outcome = entry.kind === 'result'
     ? `<div class="team-game-outcome">
         ${entry.forfeit ? '<span class="forfeit">Forfeit</span>' : ''}
@@ -186,7 +219,7 @@ function teamGameRow(entry) {
   return `<article class="team-game ${entry.kind}">
     <div class="team-game-when">${when}</div>
     <div class="team-game-opponent">
-      <span class="team-game-side">${venue}</span>${teamLink(entry.opponent)}
+      <span class="team-game-side">vs</span>${teamLink(entry.opponent)}
       <span class="opponent-power" title="Opponent power rating today">
         <span class="power-meter"><span style="width:${(100 * (entry.opponentPower - 1) / 9).toFixed(1)}%"></span></span>
         Power ${entry.opponentPower.toFixed(1)} &middot; #${entry.opponentRank}
@@ -266,9 +299,9 @@ function renderFixtures(data) {
 
   document.querySelector('#fixtures').innerHTML = data.fixtures.map((fixture) => `<article class="fixture" data-week="${fixture.week}">
     <header><span>Week ${fixture.week}</span><time>${fixture.dateLabel}</time></header>
-    <div class="fixture-teams"><div><strong>${escapeHtml(fixture.awayTeam)}</strong><small>Away</small></div><span class="versus">vs</span><div><strong>${escapeHtml(fixture.homeTeam)}</strong><small>Home</small></div></div>
+    <div class="fixture-teams"><div><strong>${escapeHtml(fixture.awayTeam)}</strong></div><span class="versus">vs</span><div><strong>${escapeHtml(fixture.homeTeam)}</strong></div></div>
     <div class="probability-bar"><span class="away" style="width:${percentage(fixture.awayWin, 1)}"></span><span class="draw" style="width:${percentage(fixture.draw, 1)}"></span><span class="home" style="width:${percentage(fixture.homeWin, 1)}"></span></div>
-    <div class="probability-labels"><span><b>${percentage(fixture.awayWin)}</b> away</span><span><b>${percentage(fixture.draw)}</b> draw</span><span><b>${percentage(fixture.homeWin)}</b> home</span></div>
+    <div class="probability-labels"><span><b>${percentage(fixture.awayWin)}</b> win</span><span><b>${percentage(fixture.draw)}</b> draw</span><span><b>${percentage(fixture.homeWin)}</b> win</span></div>
   </article>`).join('');
 
   const applyFilter = () => {
@@ -293,7 +326,8 @@ export function renderDashboard(data) {
   populateHeader(data);
   renderRankings(data.teams);
   renderMatchup(data);
-  renderScheduleGaps(data.scheduleGaps, data.teams);
+  renderScheduleStrength(data.teams);
+  renderScheduleGaps(data.scheduleGaps, data.matchups);
   renderFixtures(data);
   renderResults(data.results);
   renderRecap(data.recap);

@@ -124,9 +124,9 @@ function fixtureCard(fixture) {
       <span class="sim-team home">${home}</span>
     </div>
     <div class="sim-quick" role="group" aria-label="Quick result">
-      <button type="button" data-quick="away" title="${away} wins 1-0">Away win <b>${percentage(fixture.awayWin)}</b></button>
+      <button type="button" data-quick="away" title="${away} wins 1-0">${away} win <b>${percentage(fixture.awayWin)}</b></button>
       <button type="button" data-quick="draw" title="1-1 draw">Draw <b>${percentage(fixture.draw)}</b></button>
-      <button type="button" data-quick="home" title="${home} wins 1-0">Home win <b>${percentage(fixture.homeWin)}</b></button>
+      <button type="button" data-quick="home" title="${home} wins 1-0">${home} win <b>${percentage(fixture.homeWin)}</b></button>
       <button type="button" data-quick="clear" class="sim-clear" title="Simulate this game">Clear</button>
     </div>
   </div>`;

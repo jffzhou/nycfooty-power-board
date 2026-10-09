@@ -224,6 +224,11 @@ select { width: 100%; min-height: 44px; padding: 8px 34px 8px 11px; color: var(-
 .status-chip.bad { color: #8e2e20; background: #fde8e3; }
 .status-chip.muted { color: #6b5a2a; background: #f7efd8; }
 
+.gap-forecast { min-width: 260px; }
+.gap-odds { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; white-space: nowrap; }
+.gap-odds + .gap-odds { border-top: 1px solid #eef2ee; }
+.gap-odds > span:first-child { color: var(--muted); font-size: 12px; font-weight: 700; }
+
 .recap-headline { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 14px; color: #fff; background: var(--field-dark); border-radius: var(--radius); }
 .recap-headline div { padding: 16px 18px; border-left: 1px solid #2b403a; }
 .recap-headline div:first-child { border-left: 0; }

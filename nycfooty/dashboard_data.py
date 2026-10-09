@@ -257,7 +257,6 @@ def build_dashboard_data(
                 "kind": "result" if game.completed else "upcoming",
                 "week": game.week,
                 "dateLabel": _date_label(game.played_at, include_time=not game.completed),
-                "side": "Away" if is_away else "Home",
                 **opponent_fields(opponent),
             }
             if game.completed:
@@ -282,7 +281,6 @@ def build_dashboard_data(
                 "kind": "ghost",
                 "week": None,
                 "dateLabel": "Not on the schedule",
-                "side": None,
                 **opponent_fields(opponent),
                 **forecast_fields(team, opponent),
             }

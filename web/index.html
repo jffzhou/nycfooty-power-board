@@ -61,7 +61,7 @@
     <section>
       <div class="section-head">
         <div><span class="kicker">Team view</span><h2>Schedule and forecasts</h2></div>
-        <p class="section-note">Opponent power is today's rating. The translucent card is the opponent the schedule skips, forecast as a hypothetical neutral-site game.</p>
+        <p class="section-note">Opponent power is today's rating. The translucent card is the opponent the schedule skips, forecast as a hypothetical game.</p>
       </div>
       <div class="team-picker" id="team-picker" role="group" aria-label="Choose a team"></div>
       <div class="team-summary" id="team-summary"></div>
@@ -72,11 +72,22 @@
     <div class="tab-panel" id="panel-standings" role="tabpanel" aria-labelledby="tab-standings">
     <section>
       <div class="section-head">
-        <div><span class="kicker">Schedule balance</span><h2>Schedule strength and gaps</h2></div>
-        <p class="section-note">Schedule strength is the average power of opponents, using today's ratings. Odds compare the actual schedule with a full round robin.</p>
+        <div><span class="kicker">Schedule</span><h2>Strength of schedule</h2></div>
+        <p class="section-note">Average power rating (today's) of the opponents each team has played and still has to play. 5.0 is league average. Sorted by toughest games left.</p>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Team</th><th>Never plays</th><th>Schedule so far</th><th>Remaining schedule</th><th>Top 4: schedule &rarr; round robin</th><th>Finish 1st: schedule &rarr; round robin</th></tr></thead>
+        <thead><tr><th>Team</th><th>Played so far</th><th>Still to play</th><th>Outlook</th></tr></thead>
+        <tbody id="sos-body"></tbody>
+      </table></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Schedule</span><h2>Pairings that never meet</h2></div>
+        <p class="section-note">Each team skips one opponent. The forecast is for a hypothetical game; top-4 odds compare the real schedule with a full round robin.</p>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Never meet</th><th>Forecast if they played</th><th>Top 4: real schedule &rarr; full round robin</th></tr></thead>
         <tbody id="gaps-body"></tbody>
       </table></div>
     </section>
@@ -157,7 +168,7 @@
     <section>
       <div class="section-head">
         <div><span class="kicker">Head to head</span><h2>Matchup lab</h2></div>
-        <p class="section-note">Neutral field; current ratings.</p>
+        <p class="section-note">Current ratings.</p>
       </div>
       <div class="lab">
         <label>First team<select id="team-a"></select></label>
@@ -173,7 +184,7 @@
 
     <section>
       <div class="section-head"><div><span class="kicker">Scoreboard</span><h2>Completed matches</h2></div><p class="section-note">Newest first.</p></div>
-      <div class="results-wrap"><table><thead><tr><th>Date</th><th>Away</th><th>Score</th><th>Home</th></tr></thead><tbody id="results-body"></tbody></table></div>
+      <div class="results-wrap"><table><thead><tr><th>Date</th><th>Team</th><th>Score</th><th>Team</th></tr></thead><tbody id="results-body"></tbody></table></div>
     </section>
     </div>
 
@@ -210,7 +221,7 @@
       <p>Ratings jointly fit opponent-adjusted score margins, each capped at 4 goals, with half an average-performance pseudo-game per team. Approximate 80% ranges come from the Gaussian-ridge covariance with two-goal observation noise. The September 3 forfeit remains in official points and goal totals but has zero strength weight.</p>
       <p>Result-edge width is logarithmic goal margin. Dominance flow is a separate résumé measure: each team starts with one credit, retains 40%, and transfers 60% backward to its winners, split by logarithmic goal margin. The graph condenses strongly connected components first; forfeits have zero flow.</p>
       <p>Simulations carry official points forward, which is why a lower-rated team with banked wins can retain meaningful playoff odds. Forecasts currently condition on best-fit strengths; they do not propagate rating-parameter uncertainty.</p>
-      <p>The schedule is not a full round robin: each team skips one possible opponent. Ratings are opponent-adjusted, so a skipped opponent does not bias strength, and the default projection simulates only the fixtures actually scheduled, so each team's easier or harder remaining slate is already priced in. The round-robin toggle adds one hypothetical neutral-site fixture per skipped pairing and reruns the same simulations.</p>
+      <p>The schedule is not a full round robin: each team skips one possible opponent. Ratings are opponent-adjusted, so a skipped opponent does not bias strength, and the default projection simulates only the fixtures actually scheduled, so each team's easier or harder remaining slate is already priced in. The round-robin toggle adds one hypothetical game per skipped pairing and reruns the same simulations.</p>
       <p>Margins are capped at 4 goals, but one lopsided score can still move a team with few rated games a long way. Check the 80% range and the Teams tab before reading much into a high rank built on a single blowout.</p>
       <p>Parameters (margin cap, shrinkage, draw prior, forecast noise) were tuned on 2026-10-09 with a walk-forward backtest over 12 archived NYC Footy leagues. Through Week 6 this season's results have been unusually inconsistent, so treat individual match probabilities with caution.</p>
       <p>Playoff odds assume the top four play 1st vs 4th and 2nd vs 3rd, then a final, all at the shared venue with a drawn game settled 50/50. Bracket odds are computed exactly for each simulated final table. Clinched and eliminated flags count points only, with ties against the team. They are exact once at most 10 games remain, and conservative before that.</p>
