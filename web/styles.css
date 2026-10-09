@@ -243,7 +243,12 @@ select { width: 100%; min-height: 44px; padding: 8px 34px 8px 11px; color: var(-
 .sim-note { max-width: 900px; margin-bottom: 18px; }
 .sim-reset { min-height: 36px; padding: 6px 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 800; }
 .sim-layout { display: grid; grid-template-columns: minmax(340px, 0.75fr) minmax(0, 1.6fr); align-items: start; gap: 22px; }
-.sim-table th, .sim-table td { padding: 9px 10px; font-size: 13px; white-space: nowrap; }
+/* Fixed layout reserves worst-case widths ("100%" plus a "+100" tag) so updates never resize columns. */
+.sim-table { table-layout: fixed; min-width: 720px; }
+.sim-table .sim-num { width: 80px; }
+.sim-table .sim-num-narrow { width: 50px; }
+.sim-table th, .sim-table td { padding: 9px 6px; font-size: 13px; white-space: nowrap; }
+.sim-table td { line-height: 18px; font-variant-numeric: tabular-nums; }
 .sim-table td:first-child { white-space: normal; }
 .sim-table .sim-group-row th { color: var(--ink); text-align: center; vertical-align: bottom; }
 .sim-table .sim-group-row th:first-child { text-align: left; }
@@ -251,7 +256,7 @@ select { width: 100%; min-height: 44px; padding: 8px 34px 8px 11px; color: var(-
 .sim-table .sim-whatif { background: #f4f9ea; }
 .sim-table th.sim-whatif { background: #e3efcd; }
 .sim-table .sim-group-start { border-left: 2px solid #c9d3cc; }
-.sim-table .shift { margin-left: 4px; }
+.sim-table .shift { margin-left: 4px; padding: 1px 5px; line-height: 14px; vertical-align: top; }
 .sim-results { position: sticky; top: 66px; }
 .sim-week { margin: 18px 0 8px; color: var(--muted); font-size: 12px; text-transform: uppercase; }
 .sim-week:first-child { margin-top: 0; }
