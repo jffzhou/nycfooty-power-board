@@ -1,5 +1,6 @@
+from http.cookiejar import CookieJar
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 from nycfooty.constants import (
     LEAGUE_ID,
@@ -9,6 +10,9 @@ from nycfooty.constants import (
 )
 from nycfooty.models import Game
 from nycfooty.parsing import parse_schedule, parse_standings
+
+# LeagueApps redirects pages to themselves until its session cookie is sent back (seen 2026-10-09).
+_OPENER = build_opener(HTTPCookieProcessor(CookieJar()))
 
 
 def _fetch(
@@ -27,7 +31,7 @@ def _fetch(
             "Referer": referer,
         },
     )
-    with urlopen(request, timeout=30) as response:
+    with _OPENER.open(request, timeout=30) as response:
         return response.read().decode("utf-8")
 
 
