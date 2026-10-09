@@ -1,9 +1,18 @@
 import math
 from datetime import datetime
+from statistics import fmean
 
-from nycfooty.constants import INITIAL_ELO, PROFILE_URL, TEAM_COLORS
+from nycfooty.backtest import ModelParameters, WalkForwardBacktest
+from nycfooty.constants import INITIAL_ELO, LEAGUE_ID, MARGIN_CAP, PROFILE_URL, TEAM_COLORS
 from nycfooty.flow import calculate_dominance_flow
-from nycfooty.forecast import estimate_draw_rate, forecast_match, unplayed_pairings
+from nycfooty.forecast import (
+    average_losing_score,
+    estimate_draw_rate,
+    forecast_match,
+    playoff_status,
+    simulation_sigma,
+    unplayed_pairings,
+)
 from nycfooty.graph import analyze_result_graph
 from nycfooty.models import Game, StandingForecast
 from nycfooty.ratings import calculate_ratings, power_rating, power_rating_interval
@@ -30,9 +39,61 @@ def _projection_rows(season_forecast: list[StandingForecast]) -> list[dict[str, 
             "averageFinish": item.average_finish,
             "firstProbability": item.first_probability,
             "topFourProbability": item.top_four_probability,
+            "finalProbability": item.final_probability,
+            "championProbability": item.champion_probability,
         }
         for item in season_forecast
     ]
+
+
+def _weekly_recap(games: list[Game]) -> dict[str, object] | None:
+    """Point-in-time pre-game odds, replayed with today's settings, scored against results."""
+    predictions = WalkForwardBacktest(games).predictions(ModelParameters())
+    if not predictions:
+        return None
+    week_of = {game.game_id: game.week for game in games}
+
+    def favorite_won(prediction) -> bool:
+        return max(range(3), key=prediction.probabilities.__getitem__) == prediction.outcome_index
+
+    def summary(selected) -> dict[str, float]:
+        return {
+            "games": len(selected),
+            "favoritesWon": sum(favorite_won(prediction) for prediction in selected),
+            "modelLogLoss": fmean(prediction.log_loss for prediction in selected),
+            "coinFlipLogLoss": fmean(prediction.baseline_log_loss for prediction in selected),
+        }
+
+    weeks = sorted({week_of[prediction.game_id] for prediction in predictions})
+    latest = [prediction for prediction in predictions if week_of[prediction.game_id] == weeks[-1]]
+    games_rows = [
+        {
+            "gameId": prediction.game_id,
+            "awayTeam": prediction.away_team,
+            "homeTeam": prediction.home_team,
+            "awayScore": prediction.away_score,
+            "homeScore": prediction.home_score,
+            "awayWin": prediction.probabilities[0],
+            "draw": prediction.probabilities[1],
+            "homeWin": prediction.probabilities[2],
+            "actualProbability": prediction.probabilities[prediction.outcome_index],
+            "favoriteWon": favorite_won(prediction),
+        }
+        for prediction in latest
+    ]
+    return {
+        "week": weeks[-1],
+        "games": games_rows,
+        "biggestUpset": min(games_rows, key=lambda row: row["actualProbability"])["gameId"],
+        "season": summary(predictions),
+        "byWeek": [
+            {
+                "week": week,
+                **summary([p for p in predictions if week_of[p.game_id] == week]),
+            }
+            for week in weeks
+        ],
+    }
 
 
 def _projection_history(
@@ -80,6 +141,8 @@ def build_dashboard_data(
 ) -> dict[str, object]:
     ratings, history = calculate_ratings(games)
     graph = analyze_result_graph(games)
+    top_four_status = playoff_status(games, spots=4)
+    first_status = playoff_status(games, spots=1)
     dominance_flow = calculate_dominance_flow(graph)
     completed = sorted(
         (game for game in games if game.completed),
@@ -152,6 +215,21 @@ def build_dashboard_data(
             }
         )
 
+    def vs_expectation(game: Game, team: str) -> float | None:
+        """Capped goal margin minus the margin today's strengths expect (hindsight)."""
+        if not game.completed or game.is_forfeit:
+            return None
+        is_away = game.away_team == team
+        opponent = game.home_team if is_away else game.away_team
+        margin = (int(game.away_score) - int(game.home_score)) * (1 if is_away else -1)
+        if MARGIN_CAP is not None:
+            margin = max(-MARGIN_CAP, min(MARGIN_CAP, margin))
+        expected = (
+            ratings[team].expected_margin_vs_average
+            - ratings[opponent].expected_margin_vs_average
+        )
+        return round(margin - expected, 3)
+
     def opponent_fields(opponent: str) -> dict[str, object]:
         return {
             "opponent": opponent,
@@ -194,6 +272,7 @@ def build_dashboard_data(
                         else "D"
                     ),
                     "forfeit": game.is_forfeit,
+                    "vsExpectation": vs_expectation(game, team),
                 }
             else:
                 entry |= forecast_fields(team, opponent)
@@ -319,6 +398,56 @@ def build_dashboard_data(
             }
         )
 
+    def schedule_strength(
+        completed: bool,
+    ) -> tuple[dict[str, list[str]], dict[str, float | None], dict[str, int]]:
+        opponents = {
+            team: [
+                game.home_team if game.away_team == team else game.away_team
+                for game in regular_season
+                if game.completed == completed and team in (game.away_team, game.home_team)
+            ]
+            for team in ranked_teams
+        }
+        power = {
+            team: (
+                5.0
+                + sum(ratings[opponent].expected_margin_vs_average for opponent in faced)
+                / len(faced)
+                if faced
+                else None
+            )
+            for team, faced in opponents.items()
+        }
+        hardest_first = sorted(
+            (team for team in ranked_teams if power[team] is not None),
+            key=lambda team: power[team],
+            reverse=True,
+        )
+        return opponents, power, {team: rank for rank, team in enumerate(hardest_first, start=1)}
+
+    remaining_opponents, remaining_power, schedule_rank = schedule_strength(completed=False)
+    _, played_power, played_rank = schedule_strength(completed=True)
+    consistency = {}
+    for team in ranked_teams:
+        misses = [
+            vs_expectation(game, team)
+            for game in regular_season
+            if team in (game.away_team, game.home_team) and game.completed and not game.is_forfeit
+        ]
+        consistency[team] = (
+            math.sqrt(fmean(miss * miss for miss in misses)) if len(misses) >= 2 else None
+        )
+    least_predictable = sorted(
+        (team for team in ranked_teams if consistency[team] is not None),
+        key=lambda team: consistency[team],
+        reverse=True,
+    )
+    consistency_rank = {team: rank for rank, team in enumerate(least_predictable, start=1)}
+
+    def rounded(value: float | None) -> float | None:
+        return None if value is None else round(value, 3)
+
     team_rows = []
     for rank, team in enumerate(ranked_teams, start=1):
         rating = ratings[team]
@@ -345,6 +474,13 @@ def build_dashboard_data(
                     3,
                 ),
                 "currentPoints": 3 * rating.wins + rating.ties,
+                "remainingGames": len(remaining_opponents[team]),
+                "remainingOpponentPower": rounded(remaining_power[team]),
+                "remainingScheduleRank": schedule_rank.get(team),
+                "playedOpponentPower": rounded(played_power[team]),
+                "playedScheduleRank": played_rank.get(team),
+                "consistency": rounded(consistency[team]),
+                "consistencyRank": consistency_rank.get(team),
             }
         )
 
@@ -454,7 +590,49 @@ def build_dashboard_data(
             },
         },
         "scheduleGaps": schedule_gaps,
+        "simulator": {
+            "seed": int(LEAGUE_ID),
+            "simulations": simulations,
+            "sigma": simulation_sigma(games),
+            "averageLosingScore": average_losing_score(games),
+            "playoffSpots": 4,
+            "teams": [
+                {
+                    "team": team,
+                    "points": 3 * ratings[team].wins + ratings[team].ties,
+                    "wins": ratings[team].wins,
+                    "losses": ratings[team].losses,
+                    "ties": ratings[team].ties,
+                    "goalDifference": ratings[team].goal_difference,
+                    "goalsAgainst": ratings[team].goals_against,
+                }
+                for team in ranked_teams
+            ],
+            "fixtures": [
+                {
+                    **fixture,
+                    "expectedMargin": (
+                        ratings[fixture["awayTeam"]].expected_margin_vs_average
+                        - ratings[fixture["homeTeam"]].expected_margin_vs_average
+                    ),
+                }
+                for fixture, game in zip(fixtures, upcoming, strict=True)
+                if game.game_type.lower() == "regular season"
+            ],
+        },
         "teamSchedules": team_schedules,
+        "playoffStatus": {
+            team: {
+                "maxPoints": top_four_status[team]["maxPoints"],
+                "exact": top_four_status[team]["exact"],
+                "clinchedTopFour": top_four_status[team]["clinched"],
+                "eliminatedTopFour": top_four_status[team]["eliminated"],
+                "clinchedFirst": first_status[team]["clinched"],
+                "eliminatedFirst": first_status[team]["eliminated"],
+            }
+            for team in ranked_teams
+        },
+        "recap": _weekly_recap(games),
         "graph": {
             "nodes": graph_nodes,
             "edges": graph_edges,

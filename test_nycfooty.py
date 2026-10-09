@@ -1,3 +1,4 @@
+import math
 import unittest
 from dataclasses import replace
 from datetime import datetime, timedelta
@@ -15,6 +16,7 @@ from nycfooty import (
     forecast_history,
     parse_schedule,
     parse_standings,
+    playoff_status,
     power_rating,
     split_first_team_games,
     unplayed_pairings,
@@ -232,6 +234,73 @@ class ResultGraphTests(unittest.TestCase):
 
 
 class DashboardDataTests(unittest.TestCase):
+    def test_played_and_upcoming_opponents(self) -> None:
+        """Played and remaining strength of schedule each count only their own opponents."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        games = [
+            replace(fixture, game_id="1", away_team="A", home_team="B", away_score=4, home_score=0),
+            replace(fixture, game_id="2", away_team="C", home_team="A", away_score=1, home_score=1),
+            replace(
+                fixture,
+                game_id="3",
+                week=2,
+                played_at=fixture.played_at + timedelta(days=7),
+                away_team="A",
+                home_team="C",
+                away_score=None,
+                home_score=None,
+            ),
+        ]
+
+        teams = {
+            row["name"]: row
+            for row in build_dashboard_data(
+                games,
+                [],
+                [],
+                generated_at=datetime(2026, 1, 1),
+                simulations=1,
+            )["teams"]
+        }
+
+        self.assertAlmostEqual(teams["A"]["remainingOpponentPower"], 5.0 + teams["C"]["expectedMarginVsAverage"], places=3)
+        self.assertAlmostEqual(
+            teams["A"]["playedOpponentPower"],
+            5.0 + (teams["B"]["expectedMarginVsAverage"] + teams["C"]["expectedMarginVsAverage"]) / 2,
+            places=2,
+        )
+        self.assertIsNone(teams["B"]["remainingOpponentPower"])
+
+    def test_upcoming_fixture_between_unequal_teams(self) -> None:
+        """The browser simulator's margin and noise must reproduce the published match odds."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        games = [
+            replace(fixture, game_id="1", away_team="A", home_team="B", away_score=3, home_score=1),
+            replace(fixture, game_id="2", away_team="C", home_team="A", away_score=1, home_score=1),
+            replace(
+                fixture,
+                game_id="3",
+                week=2,
+                played_at=fixture.played_at + timedelta(days=7),
+                away_team="B",
+                home_team="C",
+                away_score=None,
+                home_score=None,
+            ),
+        ]
+
+        simulator = build_dashboard_data(
+            games,
+            [],
+            [],
+            generated_at=datetime(2026, 1, 1),
+            simulations=1,
+        )["simulator"]
+
+        (upcoming,) = simulator["fixtures"]
+        standardized = (0.5 - upcoming["expectedMargin"]) / (simulator["sigma"] * math.sqrt(2.0))
+        self.assertAlmostEqual(1.0 - 0.5 * (1.0 + math.erf(standardized)), upcoming["awayWin"])
+
     def test_team_schedules_with_home_loss_and_unscheduled_pairing(self) -> None:
         """Each team's schedule is told from its own side and ends with its skipped opponent."""
         fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
@@ -331,6 +400,58 @@ class SeasonForecastTests(unittest.TestCase):
 
         by_team = {item.team: item for item in forecast}
         self.assertAlmostEqual(by_team["A"].first_probability, win + draw / 2, delta=0.01)
+
+    def test_completed_four_team_season(self) -> None:
+        """Seeds 1 and 4 meet in one semifinal and seeds 2 and 3 in the other."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        games = [
+            replace(fixture, game_id="1", away_team="Q", home_team="B", away_score=3, home_score=0),
+            replace(fixture, game_id="2", away_team="Q", home_team="Z", away_score=2, home_score=0),
+            replace(fixture, game_id="3", away_team="M", home_team="B", away_score=1, home_score=0),
+            replace(fixture, game_id="4", away_team="Z", home_team="B", away_score=1, home_score=1),
+        ]
+
+        forecast = {item.team: item for item in forecast_final_standings(games, simulations=1, seed=7)}
+
+        self.assertAlmostEqual(forecast["Q"].final_probability + forecast["B"].final_probability, 1.0)
+        self.assertAlmostEqual(sum(item.champion_probability for item in forecast.values()), 1.0)
+        self.assertEqual(max(forecast.values(), key=lambda item: item.champion_probability).team, "Q")
+
+    def test_two_chasers_meeting_in_last_game(self) -> None:
+        """Two chasers who play each other cannot both catch the leader."""
+        status = playoff_status(self._chase_games(), spots=2)
+
+        self.assertEqual(
+            (status["T"]["clinched"], status["X"]["clinched"], status["X"]["eliminated"], status["Z"]["eliminated"]),
+            (True, False, False, True),
+        )
+        self.assertFalse(playoff_status(self._chase_games(), spots=1)["T"]["clinched"], "a chaser can tie T")
+
+    def test_too_many_remaining_games_for_exact_check(self) -> None:
+        """The conservative check never claims a clinch a tie could undo, and still eliminates."""
+        status = playoff_status(self._chase_games(), spots=1, exact_limit=0)
+
+        self.assertEqual((status["T"]["clinched"], status["Z"]["eliminated"]), (False, True))
+
+    @staticmethod
+    def _chase_games() -> list:
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        return [
+            replace(fixture, game_id="1", away_team="T", home_team="Z", away_score=1, home_score=0),
+            replace(fixture, game_id="2", away_team="T", home_team="Y", away_score=1, home_score=0),
+            replace(fixture, game_id="3", away_team="Y", home_team="Z", away_score=1, home_score=0),
+            replace(fixture, game_id="4", away_team="X", home_team="Z", away_score=1, home_score=0),
+            replace(
+                fixture,
+                game_id="5",
+                week=2,
+                played_at=fixture.played_at + timedelta(days=7),
+                away_team="X",
+                home_team="Y",
+                away_score=None,
+                home_score=None,
+            ),
+        ]
 
     def test_schedule_with_unscheduled_pairings(self) -> None:
         """Played and still-scheduled pairings in either orientation are not unplayed."""

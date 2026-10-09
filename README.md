@@ -55,17 +55,23 @@ exports CSV/JSON, and invokes Vite to rebuild the standalone dashboard.
 Open `dashboard.html` directly in a browser. Each refresh writes:
 
 - `dashboard.html`: tabbed dashboard. Rankings (power table, rating paths),
-  Teams (each team's results, upcoming forecasts, and a translucent "ghost"
+  Teams (each team's results with margin vs expectation, upcoming forecasts,
+  schedule strength so far and remaining, consistency, and a translucent "ghost"
   forecast for the opponent it never plays, with opponent power), Standings
   race (unscheduled opponents, projected standings and weekly playoff odds with
-  an actual-schedule / full-round-robin toggle), Matches (fixtures, matchup lab,
+  an actual-schedule / full-round-robin toggle), Simulator (enter or pick
+  results for upcoming games and see first-place and top-four odds move;
+  strengths stay at the latest real ratings and are never refit on entered
+  results), Matches (weekly recap scored against point-in-time forecasts,
+  fixtures, matchup lab,
   results), Result graph, and Method. Click any team name to open its schedule;
   `#teams`-style hashes deep-link to a tab
 - `data/schedule.csv`: all scheduled and completed matches
 - `data/standings.csv`: the source standings table
 - `data/ratings.csv`: current model ratings and result totals
 - `data/forecasts.csv`: all remaining fixture probabilities
-- `data/projected_standings.csv`: 25,000-simulation final-table projection
+- `data/projected_standings.csv`: 25,000-simulation final-table projection,
+  including playoff final and championship odds
 - `data/projection_history.csv`: weekly first-place and top-four odds, both
   point-in-time (`first_pct`, `top_four_pct`) and hindsight (`*_hindsight`)
 - `data/projected_standings_round_robin.csv` and
@@ -105,6 +111,21 @@ held fixed. Official points and goal difference are carried forward, then each
 remaining result and margin is sampled. Teams are ordered by points, goal
 difference, and fewer goals against within each simulation; the displayed table
 is ordered by average finishing position.
+
+The top four make the playoffs: 1st plays 4th and 2nd plays 3rd, then the
+final, at the shared venue. A drawn knockout game is settled 50/50. For each
+simulated final table the bracket odds are computed exactly from the four
+seeds, so they add no random draws and leave first-place and top-four odds
+unchanged. Clinched and eliminated flags count points only, with ties against
+the team because goal-difference tiebreakers are unknown. They are exact over
+every win/draw/loss outcome once at most 10 games remain, and conservative
+before that.
+
+The Teams tab adds hindsight diagnostics from today's fit: average opponent
+power played and remaining, each result's capped margin minus the margin
+today's ratings expect, and consistency, the root-mean-square of those gaps.
+The weekly recap replays point-in-time pre-game odds with today's settings and
+scores them against a coin flip.
 
 The regular season is not a full round robin: 10 teams play 8 games each, so
 every team skips exactly one of its nine possible opponents (five unscheduled
@@ -206,6 +227,8 @@ Findings (log loss, lower is better; full tables in
   weekly playoff odds
 - `web/src/render.js`: tables, team view, and the schedule-scenario toggle
 - `web/src/tabs.js`: tab navigation and hash deep links
+- `web/src/simulator.js`: in-browser season simulation for the Simulator tab;
+  mirrors `forecast_final_standings`
 - `web/styles.css`: dashboard styling
 - `.github/copilot-instructions.md`: agent guidance and project invariants
 

@@ -28,6 +28,7 @@
       <button type="button" role="tab" id="tab-rankings" data-tab="rankings" aria-controls="panel-rankings" aria-selected="true">Rankings</button>
       <button type="button" role="tab" id="tab-teams" data-tab="teams" aria-controls="panel-teams" aria-selected="false">Teams</button>
       <button type="button" role="tab" id="tab-standings" data-tab="standings" aria-controls="panel-standings" aria-selected="false">Standings race</button>
+      <button type="button" role="tab" id="tab-simulator" data-tab="simulator" aria-controls="panel-simulator" aria-selected="false">Simulator</button>
       <button type="button" role="tab" id="tab-matches" data-tab="matches" aria-controls="panel-matches" aria-selected="false">Matches</button>
       <button type="button" role="tab" id="tab-graph" data-tab="graph" aria-controls="panel-graph" aria-selected="false">Result graph</button>
       <button type="button" role="tab" id="tab-method" data-tab="method" aria-controls="panel-method" aria-selected="false">Method</button>
@@ -71,11 +72,11 @@
     <div class="tab-panel" id="panel-standings" role="tabpanel" aria-labelledby="tab-standings">
     <section>
       <div class="section-head">
-        <div><span class="kicker">Schedule balance</span><h2>Unscheduled opponents</h2></div>
-        <p class="section-note">Pairings the regular-season schedule never plays. Odds compare the actual schedule with a full round robin.</p>
+        <div><span class="kicker">Schedule balance</span><h2>Schedule strength and gaps</h2></div>
+        <p class="section-note">Schedule strength is the average power of opponents, using today's ratings. Odds compare the actual schedule with a full round robin.</p>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Team</th><th>Never plays</th><th>Top 4: schedule &rarr; round robin</th><th>Finish 1st: schedule &rarr; round robin</th></tr></thead>
+        <thead><tr><th>Team</th><th>Never plays</th><th>Schedule so far</th><th>Remaining schedule</th><th>Top 4: schedule &rarr; round robin</th><th>Finish 1st: schedule &rarr; round robin</th></tr></thead>
         <tbody id="gaps-body"></tbody>
       </table></div>
     </section>
@@ -89,10 +90,10 @@
         </div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Rank</th><th>Team</th><th>Now</th><th>Expected remaining</th><th>Projected points</th><th>Projected W-L-T</th><th>Avg finish</th><th>Finish 1st</th><th>Top 4</th></tr></thead>
+        <thead><tr><th>Rank</th><th>Team</th><th>Now</th><th>Expected remaining</th><th>Projected points</th><th>Projected W-L-T</th><th>Avg finish</th><th>Finish 1st</th><th>Top 4</th><th>Make final</th><th>Champion</th><th>Status</th></tr></thead>
         <tbody id="projection-body"></tbody>
       </table></div>
-      <p class="projection-note"><span class="scenario-note"></span> Top four advance. Strength rank and standings forecast answer different questions: already-earned points remain banked.</p>
+      <p class="projection-note"><span class="scenario-note"></span> Top four make the playoffs: 1st plays 4th and 2nd plays 3rd, then the final, with a drawn knockout game counted as 50/50. Status is points-only, and ties count against a team because tiebreakers are unknown.</p>
     </section>
 
     <section>
@@ -113,7 +114,37 @@
     </section>
     </div>
 
+    <div class="tab-panel" id="panel-simulator" role="tabpanel" aria-labelledby="tab-simulator">
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">What if</span><h2>Result simulator</h2></div>
+        <button type="button" class="sim-reset" id="sim-reset">Clear all games</button>
+      </div>
+      <p class="section-note sim-note">Enter a score or pick a result for any upcoming game; blank games are simulated. Team strengths stay at the latest real ratings and are never refit on entered results, which only change points, goal difference, and goals against.</p>
+      <div class="sim-layout">
+        <div class="sim-fixtures" id="sim-fixtures"></div>
+        <div class="sim-results">
+          <div class="table-wrap"><table class="sim-table">
+            <thead>
+              <tr class="sim-group-row"><th rowspan="2">Team</th><th colspan="4">Real results only<small id="sim-real-head"></small></th><th colspan="4" class="sim-whatif sim-group-start">What-if<small id="sim-whatif-head"></small></th></tr>
+              <tr><th>Proj. pts</th><th>Avg finish</th><th>Finish 1st</th><th>Top 4</th><th class="sim-whatif sim-group-start">Proj. pts</th><th class="sim-whatif">Avg finish</th><th class="sim-whatif">Finish 1st</th><th class="sim-whatif">Top 4</th></tr>
+            </thead>
+            <tbody id="sim-body"></tbody>
+          </table></div>
+          <p class="projection-note" id="sim-status"></p>
+        </div>
+      </div>
+    </section>
+    </div>
+
     <div class="tab-panel" id="panel-matches" role="tabpanel" aria-labelledby="tab-matches">
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Weekly recap</span><h2 id="recap-title">Recap</h2></div>
+        <p class="section-note">Pre-game odds replayed with today's model settings, using only results known before each game.</p>
+      </div>
+      <div class="recap" id="recap"></div>
+    </section>
     <section>
       <div class="control-row">
         <div><span class="kicker">Forecast</span><h2>Upcoming fixtures</h2></div>
@@ -181,6 +212,8 @@
       <p>The schedule is not a full round robin: each team skips one possible opponent. Ratings are opponent-adjusted, so a skipped opponent does not bias strength, and the default projection simulates only the fixtures actually scheduled, so each team's easier or harder remaining slate is already priced in. The round-robin toggle adds one hypothetical neutral-site fixture per skipped pairing and reruns the same simulations.</p>
       <p>Margins are capped at 4 goals, but one lopsided score can still move a team with few rated games a long way. Check the 80% range and the Teams tab before reading much into a high rank built on a single blowout.</p>
       <p>Parameters (margin cap, shrinkage, draw prior, forecast noise) were tuned on 2026-10-09 with a walk-forward backtest over 12 archived NYC Footy leagues. Through Week 6 this season's results have been unusually inconsistent, so treat individual match probabilities with caution.</p>
+      <p>Playoff odds assume the top four play 1st vs 4th and 2nd vs 3rd, then a final, all at the shared venue with a drawn game settled 50/50. Bracket odds are computed exactly for each simulated final table. Clinched and eliminated flags count points only, with ties against the team. They are exact once at most 10 games remain, and conservative before that.</p>
+      <p>Consistency is the typical gap, in goals (capped at 4), between a team's results and what today's ratings expect. It is a hindsight measure. The weekly recap scores point-in-time forecasts: each game is predicted only from results on earlier dates.</p>
     </section>
     </div>
   </main>

@@ -1,9 +1,10 @@
 import math
 import random
+from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from dataclasses import replace
 from datetime import timedelta
-from itertools import combinations
+from itertools import combinations, product
 
 from nycfooty.constants import (
     DEFAULT_SIMULATIONS,
@@ -121,6 +122,96 @@ def _sample_poisson(random_generator: random.Random, rate: float) -> int:
     return count - 1
 
 
+def simulation_sigma(games: Iterable[Game]) -> float:
+    return _margin_sigma(estimate_draw_rate(games)) * FORECAST_SIGMA_SCALE
+
+
+def _knockout_probability(expected_margin: float, sigma: float) -> float:
+    """Win probability with a drawn knockout game settled 50/50."""
+
+    def margin_cdf(value: float) -> float:
+        return 0.5 * (1.0 + math.erf((value - expected_margin) / (sigma * math.sqrt(2.0))))
+
+    return 1.0 - 0.5 * margin_cdf(0.5) - 0.5 * margin_cdf(-0.5)
+
+
+def playoff_status(
+    games: Iterable[Game],
+    *,
+    spots: int,
+    exact_limit: int = 10,
+) -> dict[str, dict[str, object]]:
+    """Points-only clinch/elimination; ties count against the team because tiebreakers are unknown.
+
+    Exact over every win/draw/loss outcome when at most `exact_limit` games remain,
+    otherwise a conservative bound that ignores rivals having to play each other.
+    """
+    all_games = list(games)
+    ratings, _ = calculate_ratings(all_games)
+    teams = sorted(ratings)
+    count = len(teams)
+    index = {team: position for position, team in enumerate(teams)}
+    base = [3 * ratings[team].wins + ratings[team].ties for team in teams]
+    remaining = [
+        (index[game.away_team], index[game.home_team])
+        for game in _regular_season(all_games)
+        if not game.completed
+    ]
+    games_left = [0] * count
+    for away, home in remaining:
+        games_left[away] += 1
+        games_left[home] += 1
+    max_points = [base[team] + 3 * games_left[team] for team in range(count)]
+    exact = len(remaining) <= exact_limit
+    if exact:
+        clinched = [True] * count
+        eliminated = [True] * count
+        for outcome in product((0, 1, 2), repeat=len(remaining)):
+            points = base.copy()
+            for (away, home), result in zip(remaining, outcome, strict=True):
+                if result == 0:
+                    points[away] += 3
+                elif result == 2:
+                    points[home] += 3
+                else:
+                    points[away] += 1
+                    points[home] += 1
+            ascending = sorted(points)
+            for team in range(count):
+                at_least = count - bisect_left(ascending, points[team]) - 1
+                ahead = count - bisect_right(ascending, points[team])
+                clinched[team] = clinched[team] and at_least < spots
+                eliminated[team] = eliminated[team] and ahead >= spots
+            if not any(clinched) and not any(eliminated):
+                break
+    else:
+        clinched = [
+            sum(max_points[other] >= base[team] for other in range(count) if other != team) < spots
+            for team in range(count)
+        ]
+        eliminated = [
+            sum(base[other] > max_points[team] for other in range(count) if other != team) >= spots
+            for team in range(count)
+        ]
+    return {
+        team: {
+            "clinched": clinched[position],
+            "eliminated": eliminated[position],
+            "maxPoints": max_points[position],
+            "exact": exact,
+        }
+        for position, team in enumerate(teams)
+    }
+
+
+def average_losing_score(games: Iterable[Game]) -> float:
+    completed = [game for game in games if game.completed and not game.is_forfeit]
+    return (
+        sum(min(int(game.away_score), int(game.home_score)) for game in completed)
+        / max(1, len(completed))
+    )
+
+
 def forecast_final_standings(
     games: Iterable[Game],
     *,
@@ -137,7 +228,7 @@ def forecast_final_standings(
     strengths, _ = calculate_ratings(model_games)
     teams = sorted(ratings)
     team_index = {team: index for index, team in enumerate(teams)}
-    sigma = _margin_sigma(estimate_draw_rate(model_games)) * FORECAST_SIGMA_SCALE
+    sigma = simulation_sigma(model_games)
     fixtures = [
         (
             team_index[game.away_team],
@@ -156,11 +247,15 @@ def forecast_final_standings(
     base_ties = [ratings[team].ties for team in teams]
     base_goal_difference = [ratings[team].goal_difference for team in teams]
     base_goals_against = [ratings[team].goals_against for team in teams]
-    completed = [game for game in all_games if game.completed and not game.is_forfeit]
-    average_losing_score = (
-        sum(min(int(game.away_score), int(game.home_score)) for game in completed)
-        / max(1, len(completed))
-    )
+    losing_score_rate = average_losing_score(all_games)
+    team_strength = [
+        strengths[team].expected_margin_vs_average if team in strengths else 0.0
+        for team in teams
+    ]
+    knockout = [
+        [_knockout_probability(first - second, sigma) for second in team_strength]
+        for first in team_strength
+    ]
     totals = {
         "points": [0.0] * len(teams),
         "wins": [0.0] * len(teams),
@@ -169,6 +264,8 @@ def forecast_final_standings(
         "finish": [0.0] * len(teams),
         "first": [0] * len(teams),
         "top_four": [0] * len(teams),
+        "final": [0.0] * len(teams),
+        "champion": [0.0] * len(teams),
     }
     random_generator = random.Random(seed)
 
@@ -181,7 +278,7 @@ def forecast_final_standings(
         goals_against = base_goals_against.copy()
         for away, home, expected_margin in fixtures:
             sampled_margin = random_generator.gauss(expected_margin, sigma)
-            base_score = _sample_poisson(random_generator, average_losing_score)
+            base_score = _sample_poisson(random_generator, losing_score_rate)
             if sampled_margin > 0.5:
                 margin = max(1, round(sampled_margin))
                 wins[away] += 1
@@ -228,6 +325,22 @@ def forecast_final_standings(
                 totals["first"][index] += 1
             if position <= min(4, len(teams)):
                 totals["top_four"][index] += 1
+        if len(order) >= 4:
+            # Bracket odds are exact given the seeds, so they add no random draws.
+            seed_one, seed_two, seed_three, seed_four = order[:4]
+            reach_final = {
+                seed_one: knockout[seed_one][seed_four],
+                seed_four: knockout[seed_four][seed_one],
+                seed_two: knockout[seed_two][seed_three],
+                seed_three: knockout[seed_three][seed_two],
+            }
+            for team, probability in reach_final.items():
+                totals["final"][team] += probability
+            for upper in (seed_one, seed_four):
+                for lower in (seed_two, seed_three):
+                    meeting = reach_final[upper] * reach_final[lower]
+                    totals["champion"][upper] += meeting * knockout[upper][lower]
+                    totals["champion"][lower] += meeting * knockout[lower][upper]
 
     forecasts = [
         StandingForecast(
@@ -241,25 +354,13 @@ def forecast_final_standings(
             average_finish=totals["finish"][index] / simulations,
             first_probability=totals["first"][index] / simulations,
             top_four_probability=totals["top_four"][index] / simulations,
+            final_probability=totals["final"][index] / simulations,
+            champion_probability=totals["champion"][index] / simulations,
         )
         for index, team in enumerate(teams)
     ]
     forecasts.sort(key=lambda item: (item.average_finish, -item.expected_points, item.team))
-    return [
-        StandingForecast(
-            projected_rank=rank,
-            team=item.team,
-            current_points=item.current_points,
-            expected_points=item.expected_points,
-            expected_wins=item.expected_wins,
-            expected_losses=item.expected_losses,
-            expected_ties=item.expected_ties,
-            average_finish=item.average_finish,
-            first_probability=item.first_probability,
-            top_four_probability=item.top_four_probability,
-        )
-        for rank, item in enumerate(forecasts, start=1)
-    ]
+    return [replace(item, projected_rank=rank) for rank, item in enumerate(forecasts, start=1)]
 
 
 def forecast_history(

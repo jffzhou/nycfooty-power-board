@@ -98,3 +98,5 @@ class StandingForecast:
     average_finish: float
     first_probability: float
     top_four_probability: float
+    final_probability: float = 0.0
+    champion_probability: float = 0.0

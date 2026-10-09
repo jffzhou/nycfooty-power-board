@@ -6,6 +6,7 @@ from nycfooty.forecast import (
     forecast_final_standings,
     forecast_history,
     forecast_match,
+    playoff_status,
     unplayed_pairings,
 )
 from nycfooty.graph import analyze_result_graph
@@ -39,6 +40,7 @@ __all__ = [
     "forecast_match",
     "parse_schedule",
     "parse_standings",
+    "playoff_status",
     "power_rating",
     "power_rating_interval",
     "split_first_team_games",

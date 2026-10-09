@@ -67,7 +67,18 @@ function renderMatchup(data) {
   update();
 }
 
-export function renderProjection(scenario) {
+function statusCell(status) {
+  if (!status) return '<span class="sample">Hypothetical</span>';
+  const chips = [];
+  if (status.clinchedFirst) chips.push('<span class="status-chip good">Clinched 1st</span>');
+  else if (status.clinchedTopFour) chips.push('<span class="status-chip good">Clinched top 4</span>');
+  if (status.eliminatedTopFour) chips.push('<span class="status-chip bad">Eliminated</span>');
+  else if (status.eliminatedFirst) chips.push('<span class="status-chip muted">Can&#039;t finish 1st</span>');
+  if (!chips.length) chips.push('<span class="status-chip">Alive</span>');
+  return `${chips.join('')}<span class="sample">Max ${status.maxPoints} pts</span>`;
+}
+
+export function renderProjection(scenario, playoffStatus = null) {
   document.querySelector('#projection-body').innerHTML = scenario.projections.map((row) => `<tr>
     <td class="rank">${String(row.rank).padStart(2, '0')}</td>
     <td>${teamLink(row.team)}</td>
@@ -78,6 +89,9 @@ export function renderProjection(scenario) {
     <td>${row.averageFinish.toFixed(1)}</td>
     <td>${percentage(row.firstProbability)}</td>
     <td class="playoff-cell"><strong>${percentage(row.topFourProbability)}</strong><div class="playoff-bar"><span style="width:${percentage(row.topFourProbability, 1)}"></span></div></td>
+    <td>${percentage(row.finalProbability)}</td>
+    <td><strong>${percentage(row.championProbability)}</strong></td>
+    <td>${statusCell(playoffStatus?.[row.team])}</td>
   </tr>`).join('');
   document.querySelectorAll('.scenario-note').forEach((note) => {
     note.textContent = scenario.note;
@@ -91,18 +105,59 @@ function oddsShift(before, after) {
   return `${percentage(before)} &rarr; ${percentage(after)} <span class="shift ${direction}">${signed(change)} pts</span>`;
 }
 
-function renderScheduleGaps(gaps) {
+function scheduleStrength(power, rank, count) {
+  return power === null
+    ? '<span class="sample">No games</span>'
+    : `<strong>${power.toFixed(1)}</strong><span class="sample">#${rank} hardest of ${count}</span>`;
+}
+
+function renderScheduleGaps(gaps, teams) {
+  const byName = new Map(teams.map((team) => [team.name, team]));
+  const playedCount = teams.filter((team) => team.playedScheduleRank !== null).length;
+  const remainingCount = teams.filter((team) => team.remainingScheduleRank !== null).length;
   document.querySelector('#gaps-body').innerHTML = gaps.map((row) => {
+    const team = byName.get(row.team);
     const opponents = row.unplayedOpponents.length
       ? row.unplayedOpponents.map((opponent) => `${teamLink(opponent.team)}<span class="sample">#${opponent.rank} by power &middot; ${opponent.power.toFixed(1)}</span>`).join('')
       : '<span class="sample">Plays everyone</span>';
     return `<tr>
       <td>${teamLink(row.team)}<span class="sample">Plays ${row.scheduledOpponentCount} of ${row.possibleOpponentCount} opponents &middot; power ${row.power.toFixed(1)}</span></td>
       <td>${opponents}</td>
+      <td>${scheduleStrength(team.playedOpponentPower, team.playedScheduleRank, playedCount)}</td>
+      <td>${scheduleStrength(team.remainingOpponentPower, team.remainingScheduleRank, remainingCount)}</td>
       <td class="record">${oddsShift(row.scheduleTopFour, row.roundRobinTopFour)}</td>
       <td class="record">${oddsShift(row.scheduleFirst, row.roundRobinFirst)}</td>
     </tr>`;
   }).join('');
+}
+
+function renderRecap(recap) {
+  const container = document.querySelector('#recap');
+  if (!recap) {
+    container.innerHTML = '<p class="sample">No forecastable results yet.</p>';
+    return;
+  }
+  document.querySelector('#recap-title').textContent = `Week ${recap.week} recap`;
+  const upset = recap.games.find((game) => game.gameId === recap.biggestUpset);
+  const latest = recap.byWeek[recap.byWeek.length - 1];
+  const season = recap.season;
+  const verdict = season.modelLogLoss < season.coinFlipLogLoss ? 'ahead of' : 'behind';
+  const gameRows = recap.games.map((game) => `<div class="recap-game${game.gameId === recap.biggestUpset ? ' upset' : ''}">
+      <div class="recap-score"><span>${escapeHtml(game.awayTeam)}</span><strong>${game.awayScore}&ndash;${game.homeScore}</strong><span>${escapeHtml(game.homeTeam)}</span></div>
+      <div class="probability-bar"><span class="away" style="width:${percentage(game.awayWin, 1)}"></span><span class="draw" style="width:${percentage(game.draw, 1)}"></span><span class="home" style="width:${percentage(game.homeWin, 1)}"></span></div>
+      <div class="recap-verdict"><span class="status-chip ${game.favoriteWon ? 'good' : 'bad'}">${game.favoriteWon ? 'Favorite won' : 'Upset'}</span>Model gave this result <b>${percentage(game.actualProbability)}</b></div>
+    </div>`).join('');
+  const weekRows = recap.byWeek.map((week) => `<tr><td>W${week.week}</td><td>${week.favoritesWon} of ${week.games}</td><td>${week.modelLogLoss.toFixed(3)}</td><td>${week.coinFlipLogLoss.toFixed(3)}</td></tr>`).join('');
+  container.innerHTML = `
+    <div class="recap-headline">
+      <div><span>Favorites won</span><strong>${latest.favoritesWon} of ${latest.games}</strong></div>
+      <div><span>Biggest upset</span><strong>${escapeHtml(upset.awayTeam)} ${upset.awayScore}&ndash;${upset.homeScore} ${escapeHtml(upset.homeTeam)}</strong><small>${percentage(upset.actualProbability)} pre-game</small></div>
+      <div><span>Season so far</span><strong>Model ${verdict} a coin flip</strong><small>${season.modelLogLoss.toFixed(3)} vs ${season.coinFlipLogLoss.toFixed(3)} log loss (lower is better), ${season.favoritesWon} of ${season.games} favorites won</small></div>
+    </div>
+    <div class="recap-body">
+      <div class="recap-games">${gameRows}</div>
+      <div class="table-wrap"><table class="recap-table"><thead><tr><th>Week</th><th>Favorites won</th><th>Model</th><th>Coin flip</th></tr></thead><tbody>${weekRows}</tbody></table></div>
+    </div>`;
 }
 
 const TEAM_GAME_GROUPS = [
@@ -120,6 +175,7 @@ function teamGameRow(entry) {
   const outcome = entry.kind === 'result'
     ? `<div class="team-game-outcome">
         ${entry.forfeit ? '<span class="forfeit">Forfeit</span>' : ''}
+        ${entry.vsExpectation === null ? '' : `<span class="vs-expected ${entry.vsExpectation >= 0 ? 'up' : 'down'}" title="Goal margin (capped at 4) minus what today's ratings expect">${signed(entry.vsExpectation, 1)} vs exp.</span>`}
         <span class="outcome-badge ${OUTCOME_CLASSES[entry.outcome]}">${entry.outcome}</span>
         <strong class="scoreline">${entry.teamScore}-${entry.opponentScore}</strong>
       </div>`
@@ -152,13 +208,31 @@ export function renderTeamView(data) {
       chip.setAttribute('aria-pressed', String(chip.dataset.teamLink === name));
     });
     const projection = projections.get(name);
+    const scheduledTeams = data.teams.filter((item) => item.remainingScheduleRank !== null).length;
+    const playedTeams = data.teams.filter((item) => item.playedScheduleRank !== null).length;
+    const ratedTeams = data.teams.filter((item) => item.consistencyRank !== null).length;
+    const ahead = team.remainingOpponentPower !== null && team.playedOpponentPower !== null
+      ? ` &middot; ${signed(team.remainingOpponentPower - team.playedOpponentPower, 1)} vs so far`
+      : '';
+    const remaining = team.remainingOpponentPower === null
+      ? '<dd>–<small>No games left</small></dd>'
+      : `<dd>${team.remainingOpponentPower.toFixed(1)}<small>#${team.remainingScheduleRank} hardest of ${scheduledTeams} &middot; ${team.remainingGames} left${ahead}</small></dd>`;
+    const played = team.playedOpponentPower === null
+      ? '<dd>–<small>No games yet</small></dd>'
+      : `<dd>${team.playedOpponentPower.toFixed(1)}<small>Avg opponent power &middot; #${team.playedScheduleRank} hardest of ${playedTeams}</small></dd>`;
+    const consistency = team.consistency === null
+      ? '<dd>–<small>Needs 2+ rated games</small></dd>'
+      : `<dd>&plusmn;${team.consistency.toFixed(1)}<small>Goals off expectation &middot; #${team.consistencyRank} least predictable of ${ratedTeams}</small></dd>`;
     document.querySelector('#team-summary').innerHTML = `
       <div class="team-summary-name" style="border-color:${team.color}"><span class="kicker">#${team.rank} by power</span><h3>${escapeHtml(team.name)}</h3></div>
       <dl>
         <div><dt>Power</dt><dd>${team.power.toFixed(1)}<small>80% ${team.powerLow.toFixed(1)}–${team.powerHigh.toFixed(1)} &middot; ${team.ratedGames} rated</small></dd></div>
         <div><dt>Record</dt><dd>${team.wins}-${team.losses}-${team.ties}<small>${team.currentPoints} pts &middot; GD ${signed(team.goalDifference)}</small></dd></div>
         <div><dt>Projected</dt><dd>${projection ? `${projection.expectedPoints.toFixed(1)} pts` : '–'}<small>${projection ? `Avg finish ${projection.averageFinish.toFixed(1)}` : ''}</small></dd></div>
-        <div><dt>Top 4</dt><dd>${projection ? percentage(projection.topFourProbability) : '–'}<small>${projection ? `${percentage(projection.firstProbability)} to finish 1st` : ''}</small></dd></div>
+        <div><dt>Top 4</dt><dd>${projection ? percentage(projection.topFourProbability) : '–'}<small>${projection ? `${percentage(projection.firstProbability)} to finish 1st &middot; ${percentage(projection.championProbability)} champion` : ''}</small></dd></div>
+        <div><dt>Schedule so far</dt>${played}</div>
+        <div><dt>Remaining schedule</dt>${remaining}</div>
+        <div><dt>Consistency</dt>${consistency}</div>
       </dl>`;
     const schedule = data.teamSchedules[name];
     document.querySelector('#team-games').innerHTML = TEAM_GAME_GROUPS.map(([kind, title, note]) => {
@@ -219,7 +293,8 @@ export function renderDashboard(data) {
   populateHeader(data);
   renderRankings(data.teams);
   renderMatchup(data);
-  renderScheduleGaps(data.scheduleGaps);
+  renderScheduleGaps(data.scheduleGaps, data.teams);
   renderFixtures(data);
   renderResults(data.results);
+  renderRecap(data.recap);
 }

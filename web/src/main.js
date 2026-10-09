@@ -4,9 +4,11 @@ import { renderResultGraph } from './graph.js';
 import { renderOddsCharts } from './odds-chart.js';
 import { renderRatingChart } from './rating-chart.js';
 import { bindScenarioToggle, renderDashboard, renderProjection, renderTeamView } from './render.js';
+import { renderSimulator } from './simulator.js';
 import { initTabs } from './tabs.js';
 
 renderDashboard(dashboardData);
+renderSimulator(dashboardData.simulator);
 const selectTeam = renderTeamView(dashboardData);
 selectTeam(dashboardData.teams[0].name);
 const graphView = renderResultGraph(dashboardData.graph);
@@ -14,7 +16,7 @@ renderRatingChart(dashboardData.ratingHistory);
 const scenarios = dashboardData.projectionScenarios;
 const updateOddsCharts = renderOddsCharts(scenarios.schedule.history);
 bindScenarioToggle(scenarios, (scenario) => {
-  renderProjection(scenario);
+  renderProjection(scenario, scenario === scenarios.schedule ? dashboardData.playoffStatus : null);
   updateOddsCharts(scenario.history);
 });
 

@@ -44,6 +44,8 @@ def _projected_rows(season_forecast: list[StandingForecast]) -> list[dict[str, o
             "average_finish": round(item.average_finish, 2),
             "first_pct": round(item.first_probability * 100.0, 2),
             "top_four_pct": round(item.top_four_probability * 100.0, 2),
+            "final_pct": round(item.final_probability * 100.0, 2),
+            "champion_pct": round(item.champion_probability * 100.0, 2),
         }
         for item in season_forecast
     ]
