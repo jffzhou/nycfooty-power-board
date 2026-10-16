@@ -509,30 +509,32 @@ class ModelChoice:
 MODEL_CHOICES = {
     "margin": ModelChoice(
         "Goal margin",
-        "Rates teams by how much they win or lose by, adjusted for who they played.",
-        "Think goal difference per game, corrected for schedule: losing 2-1 to the best team can rate "
-        "higher than beating the worst team 1-0. A 4-0 win counts four times as much as 1-0, and "
-        "anything bigger counts as a 4-goal win. A draw is just a margin of zero. It is the default "
-        "because no other model predicted past leagues clearly better.",
+        "Rates teams by goal margin, adjusted for opponent strength.",
+        "Ratings are fitted so that rating differences reproduce observed goal margins, each capped at "
+        "4 goals. Results enter only through the margin, so a draw is a margin of zero. This is the "
+        "default model because neither alternative forecast past leagues measurably better.",
         ModelParameters(),
     ),
     # Challenger settings selected 2026-10-16 by backtest_models.py on the tuning leagues.
     "results": ModelChoice(
         "Results + margin",
-        "Rates teams mostly on wins, draws and losses, adjusted for who they played, with a small "
-        "bonus for winning by two.",
-        "Closer to how the standings see teams: a 1-0 win counts nearly as much as 5-0, so a team "
-        "that grinds out narrow wins ranks higher and one blowout can't carry a team. On past "
-        "leagues it predicted as well as goal margin.",
+        "Rates teams by win, draw and loss results and, with less weight, by goal margin, adjusted "
+        "for opponent strength.",
+        "The fit weights the likelihood of each observed result at 0.75 and the goal margin, capped "
+        "at 2, at 0.25. A 1-0 win therefore counts nearly as much as a 5-0 win, and a single "
+        "lopsided result has limited influence. On past leagues its forecasts were as accurate as "
+        "the goal-margin model's.",
         ModelParameters(ridge=0.02, margin_cap=2, sigma_scale=1.4, result_weight=0.75),
     ),
     "dixon-coles": ModelChoice(
         "Dixon-Coles goals",
-        "Gives every team an attack rating and a defence rating, and counts recent games more.",
-        "Built from goals scored and conceded, so a team that wins 4-3 every week looks different "
-        "from one that wins 1-0. A game from four weeks ago counts half as much as this week's, and "
-        "goals past four in one game are ignored. It is the classic model for professional soccer, "
-        "but it was the least accurate of the three on past leagues.",
+        "Estimates separate attack and defence ratings from goals scored and conceded, weighting "
+        "recent matches more heavily.",
+        "A team's expected goals in a match depend on its attack rating and the opponent's defence "
+        "rating. Goals are modelled as Poisson counts with the Dixon-Coles adjustment for low "
+        "scores. A match loses half its weight every 28 days, and goals above four per team in a "
+        "match are not counted. The model is widely used for professional football but was the "
+        "least accurate of the three on past leagues.",
         DixonColesParameters(),
     ),
 }

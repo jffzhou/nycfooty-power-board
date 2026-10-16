@@ -307,15 +307,15 @@ export function renderModelSwitch(bundle, modelId) {
   // This-season scores come from each model's live recap so they update every refresh.
   const season = Object.fromEntries(bundle.modelOrder.map((id) => [id, bundle.models[id].recap?.season]));
   const anySeason = season[bundle.defaultModel];
-  document.querySelector('#comparison-past-games').textContent = rows.length ? `${rows[0].test_matches} games` : '';
-  document.querySelector('#comparison-season-games').textContent = anySeason ? `${anySeason.games} games` : '';
+  document.querySelector('#comparison-past-games').textContent = rows.length ? `${rows[0].test_matches} matches` : '';
+  document.querySelector('#comparison-season-games').textContent = anySeason ? `${anySeason.games} matches` : '';
   document.querySelector('#comparison-body').innerHTML = rows.map((row) => {
     const isModel = row.model in bundle.models;
     const difference = isModel && row.model !== 'margin'
       ? `${minus(Number(row.test_minus_margin))}<span class="sample">${minus(Number(row.test_minus_margin_low))} to ${minus(Number(row.test_minus_margin_high))}</span>`
       : '<span class="sample">–</span>';
     const seasonScore = isModel ? season[row.model]?.modelLogLoss : anySeason?.coinFlipLogLoss;
-    const blurb = isModel ? bundle.models[row.model].metadata.model.summary : 'Ignores who is playing: every game gets this season\'s draw rate so far (starting from 17%), split evenly otherwise.';
+    const blurb = isModel ? bundle.models[row.model].metadata.model.summary : 'Ignores team identity: assigns the season\'s draw rate to date (17% prior) to a draw and splits the remainder equally.';
     const classes = [row.model === modelId ? 'current' : '', isModel ? '' : 'reference'].filter(Boolean).join(' ');
     return `<tr${classes ? ` class="${classes}"` : ''}>
       <td><strong>${escapeHtml(isModel ? row.label : 'Coin flip')}</strong>${row.model === modelId ? '<span class="status-chip good">Showing</span>' : ''}<span class="sample wrap">${escapeHtml(blurb)}</span></td>
@@ -327,8 +327,8 @@ export function renderModelSwitch(bundle, modelId) {
   if (anySeason) {
     const winners = bundle.modelOrder.filter((id) => season[id] && season[id].modelLogLoss < anySeason.coinFlipLogLoss);
     document.querySelector('#method-verdict').textContent = winners.length
-      ? `This season, ${winners.map((id) => bundle.models[id].metadata.model.label).join(' and ')} ${winners.length === 1 ? 'beats' : 'beat'} the coin flip so far. ${anySeason.games} games is a small sample, so the gap can easily change.`
-      : `This season no model beats the coin flip yet, so read individual game odds as rough guides. Every model beat it easily on past leagues, so the likely explanation is that this season's teams are unusually close. ${anySeason.games} games is still a small sample.`;
+      ? `This season, ${winners.map((id) => bundle.models[id].metadata.model.label).join(' and ')} ${winners.length === 1 ? 'has' : 'have'} a lower log loss than the coin flip so far. With ${anySeason.games} matches, the difference is not yet reliable.`
+      : `This season, no model has yet achieved a lower log loss than the coin flip, so individual match probabilities should be treated as approximate. All three models outperformed it clearly on past leagues, which suggests that this season's teams are unusually evenly matched. The season sample (${anySeason.games} matches) remains small.`;
   }
 }
 
