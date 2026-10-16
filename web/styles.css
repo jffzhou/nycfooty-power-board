@@ -70,7 +70,6 @@ h1 { max-width: 760px; margin: 0; font-size: 50px; line-height: 1.02; }
 .comparison-table tr.current td { background: #f3f9ec; }
 .comparison-table tr.current td:first-child { box-shadow: inset 4px 0 0 var(--lime); }
 .comparison-table tr.reference td { color: var(--muted); font-style: italic; }
-.method .sample { color: #9fb2ac; white-space: normal; }
 .sample.wrap { max-width: 520px; white-space: normal; }
 
 .metrics {
@@ -317,9 +316,15 @@ select { width: 100%; min-height: 44px; padding: 8px 34px 8px 11px; color: var(-
 .week-chip { display: inline-block; min-width: 30px; margin-right: 8px; padding: 3px 5px; color: #fff; background: var(--field); border-radius: 2px; font-size: 10px; text-align: center; }
 .forfeit { margin-left: 8px; padding: 3px 5px; color: #8e2e20; background: #fde8e3; border-radius: 2px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
 
-.method { padding: 24px; color: #d3ded9; background: var(--ink); border-left: 5px solid var(--lime); }
-.method h2 { color: #fff; font-size: 22px; }
-.method p { max-width: 940px; margin: 10px 0 0; font-size: 14px; line-height: 1.65; }
+.method { padding: 28px 32px 32px; background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--lime); border-radius: var(--radius); }
+.method-body { max-width: 780px; }
+.method-body h3 { margin: 30px 0 6px; font-family: Georgia, "Times New Roman", serif; font-size: 21px; }
+.method-body p { margin: 10px 0 0; font-size: 15px; line-height: 1.7; }
+.method-body .method-lead { margin-top: 0; font-size: 17px; }
+.method-body .table-wrap { margin: 16px 0 6px; }
+.method-models p { padding: 10px 14px; background: #f6f8f6; border-radius: var(--radius); }
+.method-models p.current { background: #f3f9ec; box-shadow: inset 4px 0 0 var(--lime); }
+.method-models .sample { white-space: normal; }
 footer { padding: 24px 0 38px; color: var(--muted); border-top: 1px solid var(--line); font-size: 12px; }
 
 @media (max-width: 780px) {

@@ -290,7 +290,10 @@ export function renderModelSwitch(bundle, modelId) {
   document.querySelector('#model-toggle').innerHTML = bundle.modelOrder.map((id) => `<button type="button" data-model="${escapeHtml(id)}" aria-pressed="${id === modelId}" class="${id === modelId ? 'active' : ''}">${escapeHtml(labels[id])}${id === bundle.defaultModel ? ' <small>default</small>' : ''}</button>`).join('');
   const { model } = bundle.models[modelId].metadata;
   document.querySelector('#model-summary').textContent = model.summary;
-  document.querySelector('#method-model').innerHTML = `<strong>${escapeHtml(model.label)}</strong> (showing now): ${escapeHtml(model.summary)} ${escapeHtml(model.details)}<span class="sample">Technical settings: ${escapeHtml(model.parameters)}</span>`;
+  document.querySelector('#method-models').innerHTML = bundle.modelOrder.map((id) => {
+    const choice = bundle.models[id].metadata.model;
+    return `<p${id === modelId ? ' class="current"' : ''}><strong>${escapeHtml(choice.label)}</strong>${id === modelId ? ' <span class="status-chip good">Showing</span>' : ''} ${escapeHtml(choice.summary)} ${escapeHtml(choice.details)}<span class="sample">Settings: ${escapeHtml(choice.parameters)}</span></p>`;
+  }).join('');
   document.querySelector('#model-toggle').addEventListener('click', (event) => {
     const button = event.target.closest('[data-model]');
     if (!button || button.dataset.model === modelId) return;
@@ -312,7 +315,7 @@ export function renderModelSwitch(bundle, modelId) {
       ? `${minus(Number(row.test_minus_margin))}<span class="sample">${minus(Number(row.test_minus_margin_low))} to ${minus(Number(row.test_minus_margin_high))}</span>`
       : '<span class="sample">–</span>';
     const seasonScore = isModel ? season[row.model]?.modelLogLoss : anySeason?.coinFlipLogLoss;
-    const blurb = isModel ? bundle.models[row.model].metadata.model.summary : 'Ignores who is playing: every game gets the league\'s usual chance of a draw, split evenly otherwise.';
+    const blurb = isModel ? bundle.models[row.model].metadata.model.summary : 'Ignores who is playing: every game gets this season\'s draw rate so far (starting from 17%), split evenly otherwise.';
     const classes = [row.model === modelId ? 'current' : '', isModel ? '' : 'reference'].filter(Boolean).join(' ');
     return `<tr${classes ? ` class="${classes}"` : ''}>
       <td><strong>${escapeHtml(isModel ? row.label : 'Coin flip')}</strong>${row.model === modelId ? '<span class="status-chip good">Showing</span>' : ''}<span class="sample wrap">${escapeHtml(blurb)}</span></td>
@@ -321,6 +324,12 @@ export function renderModelSwitch(bundle, modelId) {
       <td class="numeric">${seasonScore === undefined ? '–' : seasonScore.toFixed(3)}</td>
     </tr>`;
   }).join('');
+  if (anySeason) {
+    const winners = bundle.modelOrder.filter((id) => season[id] && season[id].modelLogLoss < anySeason.coinFlipLogLoss);
+    document.querySelector('#method-verdict').textContent = winners.length
+      ? `This season, ${winners.map((id) => bundle.models[id].metadata.model.label).join(' and ')} ${winners.length === 1 ? 'beats' : 'beat'} the coin flip so far. ${anySeason.games} games is a small sample, so the gap can easily change.`
+      : `This season no model beats the coin flip yet, so read individual game odds as rough guides. Every model beat it easily on past leagues, so the likely explanation is that this season's teams are unusually close. ${anySeason.games} games is still a small sample.`;
+  }
 }
 
 export function bindScenarioToggle(scenarios, onChange) {

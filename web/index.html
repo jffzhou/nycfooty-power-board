@@ -221,28 +221,44 @@
     </div>
 
     <div class="tab-panel" id="panel-method" role="tabpanel" aria-labelledby="tab-method">
-    <section>
-      <div class="section-head">
-        <div><span class="kicker">Backtest</span><h2>Model accuracy</h2></div>
-        <p class="section-note">Each score is how surprised a model was by the real results, averaged per game (log loss). Lower is better. Every forecast used only games played before it, so the models never saw the answer.</p>
-      </div>
-      <div class="table-wrap"><table class="comparison-table">
-        <thead><tr><th>Model</th><th class="numeric">Past leagues<small id="comparison-past-games"></small></th><th class="numeric">Vs goal margin<small>95% range</small></th><th class="numeric">This season<small id="comparison-season-games"></small></th></tr></thead>
-        <tbody id="comparison-body"></tbody>
-      </table></div>
-    </section>
-
     <section class="method">
-      <h2>Model notes</h2>
-      <p id="method-model"></p>
-      <p>All three models adjust for opponents: a team's rating depends on who it played, not just its record. Ranges show where a team's rating could plausibly be (80% likely) compared with the league average; they are widest for teams with few games. The September 3 forfeit counts in the standings but not in any rating.</p>
-      <p>Result-edge width is logarithmic goal margin. Dominance flow is a separate résumé measure: each team starts with one credit, retains 40%, and transfers 60% backward to its winners, split by logarithmic goal margin. The graph condenses strongly connected components first; forfeits have zero flow.</p>
-      <p>Simulations carry official points forward, which is why a lower-rated team with banked wins can retain meaningful playoff odds. Forecasts currently condition on best-fit strengths; they do not propagate rating-parameter uncertainty.</p>
-      <p>The schedule is not a full round robin: each team skips one possible opponent. Ratings are opponent-adjusted, so a skipped opponent does not bias strength, and the default projection simulates only the fixtures actually scheduled, so each team's easier or harder remaining slate is already priced in. The round-robin toggle adds one hypothetical game per skipped pairing and reruns the same simulations.</p>
-      <p>Margins are capped, but one lopsided score can still move a team with few rated games a long way. Check the 80% range and the Teams tab before reading much into a high rank built on a single blowout.</p>
-      <p>Each model's settings were chosen by replaying past NYC Footy leagues week by week and keeping what predicted best (goal margin on 2026-10-09, the other two on 2026-10-16). This season has been unusually hard to predict: no model beats a coin flip yet, so treat individual match odds with caution.</p>
-      <p>Playoff odds assume the top four play 1st vs 4th and 2nd vs 3rd, then a final, all at the shared venue with a drawn game settled 50/50. Bracket odds are computed exactly for each simulated final table. Clinched and eliminated flags count points only, with ties against the team. They are exact once at most 10 games remain, and conservative before that.</p>
-      <p>Consistency is the typical gap, in goals (capped at 4), between a team's results and what today's ratings expect. It is a hindsight measure. The weekly recap scores point-in-time forecasts: each game is predicted only from results on earlier dates. A draw counts as half a result for each side, so it is never an upset; the biggest upset is the underdog win where the favorite had the highest expected result (win chance plus half the draw chance).</p>
+      <div class="section-head"><div><span class="kicker">Method</span><h2>How this works</h2></div></div>
+      <div class="method-body">
+        <p class="method-lead">Everything here comes from the scores posted on LeagueApps. A model turns those scores into a rating for each team. The ratings give every remaining game a chance of a win, a draw or a loss, and the dashboard plays out the rest of the season 25,000 times with those chances. Points that teams have already won stay put; only the games still to come are simulated.</p>
+
+        <h3>Ratings</h3>
+        <p>A team's power rating is how many goals per game it would beat an average team by, plus 5. So 5.0 is an average team, 6.0 is a goal a game better, and 4.0 is a goal a game worse. Ratings adjust for opponents, so a narrow loss to the best team can count for more than a win over the worst.</p>
+        <p>The 80% range under each rating is where the team's true level probably sits. Teams with few games have wide ranges. When two teams' ranges overlap a lot, treat them as roughly equal, whatever their ranks say.</p>
+        <p>There are three ways to build the ratings, and you can switch between them at the top of the page.</p>
+        <div class="method-models" id="method-models"></div>
+
+        <h3>Game odds</h3>
+        <p>For a single game, the gap between two ratings is the expected goal margin. Real games are noisy, so the forecast treats the final margin as uncertain around that number, with the amount of noise based on how often games in this league end level. Rounded to whole goals, a positive margin is a win, zero is a draw, and a negative margin is a loss. Dixon-Coles works a little differently: it estimates how many goals each team will score and adds up the chances of every possible scoreline.</p>
+        <p>There is no home advantage, since every game is played on the same field.</p>
+
+        <h3>The rest of the season</h3>
+        <p>Each simulated season starts from the real standings and plays every remaining scheduled game using the odds above. Teams are then ranked by points, goal difference and fewest goals conceded, the order LeagueApps uses. Because real points carry over, a team with a modest rating but several wins in the bank can still have good playoff odds.</p>
+        <p>The top four make the playoffs. First plays fourth, second plays third, and the two winners meet in the final. A drawn playoff game is treated as a coin toss.</p>
+        <p>Clinched and eliminated tags look at points alone and assume every tie on points goes against the team, because goal difference can't be known in advance. They are exact once 10 or fewer games are left, and cautious before then.</p>
+        <p>The schedule isn't a full round robin: every team misses one opponent. Projections play only the real fixtures. The Full round robin switch on the Standings race tab adds the missing games, so you can see how much the skipped matchups matter.</p>
+
+        <h3>How accurate is it?</h3>
+        <p>To test the forecasts fairly, every past game is predicted again using only the results from before it was played, as if the dashboard had been run that week. Each prediction gets a log loss score, which measures how surprised the forecast was by what actually happened. The table shows the average per game; lower is better. The coin-flip row is the bar to clear. It ignores who is playing, splits the win chances evenly, and uses this season's draw rate so far, starting from 17% until enough games are in.</p>
+        <div class="table-wrap"><table class="comparison-table">
+          <thead><tr><th>Model</th><th class="numeric">Past leagues<small id="comparison-past-games"></small></th><th class="numeric">Vs goal margin<small>95% range</small></th><th class="numeric">This season<small id="comparison-season-games"></small></th></tr></thead>
+          <tbody id="comparison-body"></tbody>
+        </table></div>
+        <p id="method-verdict"></p>
+        <p>Goal margin's settings were tuned on 2026-10-09 and the other two models' on 2026-10-16. Each was tuned on six past NYC Footy leagues and then checked on six others.</p>
+        <p>The weekly recap on the Matches tab uses the same before-the-game forecasts. An upset is a win by the underdog. A draw counts as half a win for each side, so it is never an upset, even though any particular draw is unlikely.</p>
+
+        <h3>Fine print</h3>
+        <p>The September 3 forfeit counts in the standings but not in any rating.</p>
+        <p>Margins are capped so one blowout can't take over: at 4 goals for goal margin and 2 for results + margin, and Dixon-Coles ignores a team's goals past four in a game. One big win can still move a team with few games a long way, so check its range and its games on the Teams tab.</p>
+        <p>Consistency, on the Teams tab, is the typical gap in goals between a team's results and what today's ratings expect. It judges every past game with today's ratings, so it is a hindsight measure.</p>
+        <p>Forecasts use each team's best-guess rating and don't widen for how unsure that rating is.</p>
+        <p>On the Result graph, each arrow points from the winner to the loser, and thicker arrows mean bigger wins. When teams beat each other in a loop (A beat B, B beat C, C beat A), the graph groups them, because there is no clean order among them. Dominance flow is a résumé score: each team starts with one credit, keeps 40% and passes 60% to the teams that beat it, with more going to bigger wins. It is switched off while any loop exists.</p>
+      </div>
     </section>
     </div>
   </main>
