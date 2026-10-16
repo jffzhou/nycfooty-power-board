@@ -18,10 +18,6 @@ body {
   margin: 0;
   color: var(--ink);
   background-color: var(--paper);
-  background-image:
-    linear-gradient(rgba(22, 32, 30, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(22, 32, 30, 0.035) 1px, transparent 1px);
-  background-size: 32px 32px;
   font-family: "Trebuchet MS", "Gill Sans", sans-serif;
   letter-spacing: 0;
 }
