@@ -87,9 +87,6 @@ export function renderResultGraph(graph) {
   const graphView = cytoscape({
     container: document.querySelector('#result-graph'),
     elements,
-    // Redraw a cached bitmap while panning or zooming, then re-render once the view settles.
-    textureOnViewport: true,
-    motionBlur: false,
     minZoom: 0.2,
     maxZoom: 2.2,
     style: [
