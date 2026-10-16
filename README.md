@@ -88,21 +88,39 @@ pre-game forecast.
 
 ## Model
 
-The model jointly fits each non-forfeit score margin against both teams. Each
-margin is capped at 4 goals, and ridge regularization adds half an
-average-performance pseudo-game per team. Game `13852824`, the September 3
+The dashboard has a model switch in the header (`?model=results` or
+`?model=dixon-coles` in the URL; no parameter means the default). Every
+rating, forecast, projection, recap, and simulator view follows the selected
+model; official records, results, and clinch flags do not depend on it. The
+registry is `MODEL_CHOICES` in `nycfooty/strength_models.py`.
+
+- **Goal margin** (default): jointly fits each non-forfeit score margin
+  against both teams. Each margin is capped at 4 goals, and ridge
+  regularization adds half an average-performance pseudo-game per team.
+- **Results + margin**: the same forecast distribution fit to both the
+  win/draw/loss outcome (75% weight) and the goal margin capped at 2, so a
+  narrow win counts as a win. Result weight 0 is exactly the goal-margin model.
+- **Dixon-Coles goals**: Poisson goals with separate attack and defence
+  ratings, goals capped at 4 per team, a 28-day half-life on older games, and
+  the Dixon-Coles low-score correction (rho 0.15). Power is expected goals
+  scored minus conceded against an average team.
+
+Game `13852824`, the September 3
 forfeit by The Other Secret Team, remains
 in official W-L and goal totals but receives zero strength weight. A 5.0 power
 rating is league average, and one rating point represents one expected goal
 versus an average team. The secondary Elo-like scale uses 100 points per goal.
-The displayed approximate 80% intervals use the Gaussian-ridge covariance with
-a two-goal observation-noise assumption. They are widest for teams with the
-least evidence.
+The displayed approximate 80% intervals measure each team relative to the
+league average (the league's overall level is pinned only by the ridge, so it
+is excluded). They are widest for teams with the least evidence.
 
-Three-way forecasts use the fitted score-margin difference and a draw rate
+Three-way forecasts for the two margin models use the fitted strength
+difference and a draw rate
 regularized toward a 17% prior over 20 pseudo-games. The margin noise is the
-draw-implied value scaled by 1.2, and the season simulations use the same
-noise. There is no home advantage: every game is played at the same field.
+draw-implied value scaled by 1.2 (1.4 for results + margin), and the season
+simulations use the same noise. Dixon-Coles forecasts and simulations sample
+from its own score distribution. There is no home advantage: every game is
+played at the same field.
 Early-season estimates are
 directional and should not be treated as betting odds.
 Current fixture and standings forecasts condition on the best-fit strengths;
@@ -159,6 +177,37 @@ the dashboard disables flow while most teams share one cycle.
 
 ## Model history
 
+### 2026-10-16: model switch, two challenger models, relative rating ranges
+
+Added results + margin and Dixon-Coles as switchable models. Goal margin stays
+the default. Findings (walk-forward log loss, lower is better; full tables in
+`model_comparison.md`):
+
+| Model | Tuning leagues (131) | Test leagues (116) | This season (24) |
+|---|---:|---:|---:|
+| Goal margin | 0.846 | 0.782 | 0.974 |
+| Results + margin | 0.834 | 0.781 | 1.028 |
+| Dixon-Coles | 0.856 | 0.830 | 1.020 |
+| Coin flip | 0.972 | 0.963 | 0.942 |
+
+- Results + margin ties goal margin on the test leagues (-0.001, 95% CI
+  -0.035 to +0.034). Dixon-Coles is worse (+0.049, CI -0.010 to +0.107).
+  Neither earns the default.
+- In results + margin, a 75% result weight scored best; pure win/draw/loss
+  (weight 1) was worst, matching the 2026-10-09 finding that margins carry
+  real information.
+- Dixon-Coles preferred positive rho (fewer low-score draws than independent
+  Poisson, the opposite of professional soccer), capped goals, and a 28-day
+  half-life. Uncapped goals were much worse.
+- Both challenger grids were widened twice after edge selections, reselecting
+  on the tuning leagues each time; the test leagues were scored after each
+  pass, so they are not fully fresh.
+- This season every model still loses to a coin flip.
+- Fixed: 80% rating ranges included uncertainty about the league's overall
+  level, which only the ridge pins down. Ranges now measure each team relative
+  to the league average; for the goal-margin model they shrank from about
+  ±1.5 to ±0.9-1.1 power points. Point ratings and forecasts are unchanged.
+
 ### 2026-10-09: tuned ridge, margin cap, draw prior, and noise scale
 
 | Parameter | Before | After |
@@ -212,14 +261,18 @@ Findings (log loss, lower is better; full tables in
   the displayed 80% ranges are likely too narrow.
 - Simulated goal differences use the scaled forecast noise, so goal-difference
   tiebreaks in simulations are noisier than real ones.
-- One strength dimension; attack and defense are not separated.
+- The default model has one strength dimension. Dixon-Coles separates attack
+  and defence but forecast worse in the backtest.
 - Only explicit forfeits are excluded from strength. Inspect game notes when a
   new forfeit appears.
 
 ## Structure
 
 - `nycfooty/parsing.py` and `nycfooty/client.py`: LeagueApps ingestion
-- `nycfooty/ratings.py`: opponent-adjusted margin ratings
+- `nycfooty/ratings.py`: official records and the goal-margin least-squares fit
+- `nycfooty/strength_models.py`: the three switchable models (fit, match
+  probabilities, knockout odds, score sampling) and the `MODEL_CHOICES` registry
+- `nycfooty/backtest.py`: walk-forward predictions for any model
 - `nycfooty/graph.py`: SCC condensation and topological layers
 - `nycfooty/forecast.py`: match and season simulations, unscheduled pairings,
   and round-robin completion
@@ -269,5 +322,18 @@ against the current model on the other six eligible leagues. Writes
 `hyperparameter_backtest.md`, `data/backtest_grid.csv`, and
 `data/backtest_test_by_league.csv`. Production parameters are not changed by
 this script.
+
+## Model comparison
+
+```bash
+uv run python backtest_models.py
+```
+
+Tunes results + margin and Dixon-Coles on the six tuning leagues with the same
+walk-forward protocol, then scores each selected model, the production
+goal-margin model, and a coin flip on the six test leagues and on this season.
+Writes `model_comparison.md` and `data/model_comparison.csv`; the dashboard's
+Method tab shows the CSV after the next refresh. It reports whether
+`MODEL_CHOICES` matches the selected settings but never changes it.
 
 Source: <https://nycfooty.leagueapps.com/leagues/5086028/standings>

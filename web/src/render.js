@@ -285,6 +285,44 @@ export function renderTeamView(data) {
   };
 }
 
+export function renderModelSwitch(bundle, modelId) {
+  const labels = Object.fromEntries(bundle.modelOrder.map((id) => [id, bundle.models[id].metadata.model.label]));
+  document.querySelector('#model-toggle').innerHTML = bundle.modelOrder.map((id) => `<button type="button" data-model="${escapeHtml(id)}" aria-pressed="${id === modelId}" class="${id === modelId ? 'active' : ''}">${escapeHtml(labels[id])}${id === bundle.defaultModel ? ' <small>default</small>' : ''}</button>`).join('');
+  const { model } = bundle.models[modelId].metadata;
+  document.querySelector('#model-summary').textContent = model.summary;
+  document.querySelector('#method-model').innerHTML = `<strong>${escapeHtml(model.label)}</strong> (showing now): ${escapeHtml(model.summary)} ${escapeHtml(model.details)}<span class="sample">Technical settings: ${escapeHtml(model.parameters)}</span>`;
+  document.querySelector('#model-toggle').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-model]');
+    if (!button || button.dataset.model === modelId) return;
+    const url = new URL(location.href);
+    if (button.dataset.model === bundle.defaultModel) url.searchParams.delete('model');
+    else url.searchParams.set('model', button.dataset.model);
+    location.assign(url);
+  });
+  const rows = bundle.comparison;
+  const minus = (value) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toFixed(3)}`;
+  // This-season scores come from each model's live recap so they update every refresh.
+  const season = Object.fromEntries(bundle.modelOrder.map((id) => [id, bundle.models[id].recap?.season]));
+  const anySeason = season[bundle.defaultModel];
+  document.querySelector('#comparison-past-games').textContent = rows.length ? `${rows[0].test_matches} games` : '';
+  document.querySelector('#comparison-season-games').textContent = anySeason ? `${anySeason.games} games` : '';
+  document.querySelector('#comparison-body').innerHTML = rows.map((row) => {
+    const isModel = row.model in bundle.models;
+    const difference = isModel && row.model !== 'margin'
+      ? `${minus(Number(row.test_minus_margin))}<span class="sample">${minus(Number(row.test_minus_margin_low))} to ${minus(Number(row.test_minus_margin_high))}</span>`
+      : '<span class="sample">–</span>';
+    const seasonScore = isModel ? season[row.model]?.modelLogLoss : anySeason?.coinFlipLogLoss;
+    const blurb = isModel ? bundle.models[row.model].metadata.model.summary : 'Ignores who is playing: every game gets the league\'s usual chance of a draw, split evenly otherwise.';
+    const classes = [row.model === modelId ? 'current' : '', isModel ? '' : 'reference'].filter(Boolean).join(' ');
+    return `<tr${classes ? ` class="${classes}"` : ''}>
+      <td><strong>${escapeHtml(isModel ? row.label : 'Coin flip')}</strong>${row.model === modelId ? '<span class="status-chip good">Showing</span>' : ''}<span class="sample wrap">${escapeHtml(blurb)}</span></td>
+      <td class="numeric">${Number(row.test_log_loss).toFixed(3)}</td>
+      <td class="numeric">${difference}</td>
+      <td class="numeric">${seasonScore === undefined ? '–' : seasonScore.toFixed(3)}</td>
+    </tr>`;
+  }).join('');
+}
+
 export function bindScenarioToggle(scenarios, onChange) {
   const buttons = document.querySelectorAll('[data-scenario]');
   const select = (key) => {

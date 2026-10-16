@@ -12,6 +12,11 @@
       <p class="eyebrow">NYC Footy / Fall 2026 / P4-P5</p>
       <h1>Two Bridges Power Board</h1>
       <p class="subtitle" id="subtitle"></p>
+      <div class="model-switch">
+        <span>Model</span>
+        <div class="model-toggle" id="model-toggle" role="group" aria-label="Rating model"></div>
+        <p class="model-summary" id="model-summary"></p>
+      </div>
       <a class="source-link" id="source-link">LeagueApps source</a>
     </div>
   </header>
@@ -216,14 +221,26 @@
     </div>
 
     <div class="tab-panel" id="panel-method" role="tabpanel" aria-labelledby="tab-method">
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Backtest</span><h2>Model accuracy</h2></div>
+        <p class="section-note">Each score is how surprised a model was by the real results, averaged per game (log loss). Lower is better. Every forecast used only games played before it, so the models never saw the answer.</p>
+      </div>
+      <div class="table-wrap"><table class="comparison-table">
+        <thead><tr><th>Model</th><th class="numeric">Past leagues<small id="comparison-past-games"></small></th><th class="numeric">Vs goal margin<small>95% range</small></th><th class="numeric">This season<small id="comparison-season-games"></small></th></tr></thead>
+        <tbody id="comparison-body"></tbody>
+      </table></div>
+    </section>
+
     <section class="method">
       <h2>Model notes</h2>
-      <p>Ratings jointly fit opponent-adjusted score margins, each capped at 4 goals, with half an average-performance pseudo-game per team. Approximate 80% ranges come from the Gaussian-ridge covariance with two-goal observation noise. The September 3 forfeit remains in official points and goal totals but has zero strength weight.</p>
+      <p id="method-model"></p>
+      <p>All three models adjust for opponents: a team's rating depends on who it played, not just its record. Ranges show where a team's rating could plausibly be (80% likely) compared with the league average; they are widest for teams with few games. The September 3 forfeit counts in the standings but not in any rating.</p>
       <p>Result-edge width is logarithmic goal margin. Dominance flow is a separate résumé measure: each team starts with one credit, retains 40%, and transfers 60% backward to its winners, split by logarithmic goal margin. The graph condenses strongly connected components first; forfeits have zero flow.</p>
       <p>Simulations carry official points forward, which is why a lower-rated team with banked wins can retain meaningful playoff odds. Forecasts currently condition on best-fit strengths; they do not propagate rating-parameter uncertainty.</p>
       <p>The schedule is not a full round robin: each team skips one possible opponent. Ratings are opponent-adjusted, so a skipped opponent does not bias strength, and the default projection simulates only the fixtures actually scheduled, so each team's easier or harder remaining slate is already priced in. The round-robin toggle adds one hypothetical game per skipped pairing and reruns the same simulations.</p>
-      <p>Margins are capped at 4 goals, but one lopsided score can still move a team with few rated games a long way. Check the 80% range and the Teams tab before reading much into a high rank built on a single blowout.</p>
-      <p>Parameters (margin cap, shrinkage, draw prior, forecast noise) were tuned on 2026-10-09 with a walk-forward backtest over 12 archived NYC Footy leagues. Through Week 6 this season's results have been unusually inconsistent, so treat individual match probabilities with caution.</p>
+      <p>Margins are capped, but one lopsided score can still move a team with few rated games a long way. Check the 80% range and the Teams tab before reading much into a high rank built on a single blowout.</p>
+      <p>Each model's settings were chosen by replaying past NYC Footy leagues week by week and keeping what predicted best (goal margin on 2026-10-09, the other two on 2026-10-16). This season has been unusually hard to predict: no model beats a coin flip yet, so treat individual match odds with caution.</p>
       <p>Playoff odds assume the top four play 1st vs 4th and 2nd vs 3rd, then a final, all at the shared venue with a drawn game settled 50/50. Bracket odds are computed exactly for each simulated final table. Clinched and eliminated flags count points only, with ties against the team. They are exact once at most 10 games remain, and conservative before that.</p>
       <p>Consistency is the typical gap, in goals (capped at 4), between a team's results and what today's ratings expect. It is a hindsight measure. The weekly recap scores point-in-time forecasts: each game is predicted only from results on earlier dates. A draw counts as half a result for each side, so it is never an upset; the biggest upset is the underdog win where the favorite had the highest expected result (win chance plus half the draw chance).</p>
     </section>

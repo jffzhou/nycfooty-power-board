@@ -1,4 +1,3 @@
-import math
 import random
 from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
@@ -8,25 +7,20 @@ from itertools import combinations, product
 
 from nycfooty.constants import (
     DEFAULT_SIMULATIONS,
-    DRAW_PRIOR_GAMES,
-    DRAW_PRIOR_RATE,
     ELO_POINTS_PER_GOAL,
     FORECAST_SIGMA_SCALE,
     LEAGUE_ID,
 )
 from nycfooty.models import Game, StandingForecast
 from nycfooty.ratings import calculate_ratings
-
-
-def estimate_draw_rate(
-    games: Iterable[Game],
-    *,
-    prior_rate: float = DRAW_PRIOR_RATE,
-    prior_games: float = DRAW_PRIOR_GAMES,
-) -> float:
-    completed = [game for game in games if game.completed and not game.is_forfeit]
-    draws = sum(game.away_score == game.home_score for game in completed)
-    return (draws + prior_games * prior_rate) / (len(completed) + prior_games)
+from nycfooty.strength_models import (
+    ModelParameters,
+    StrengthParameters,
+    estimate_draw_rate,
+    fit_model,
+    margin_sigma,
+    normal_outcome_probabilities,
+)
 
 
 def _regular_season(games: Iterable[Game]) -> list[Game]:
@@ -79,19 +73,6 @@ def complete_round_robin(games: Iterable[Game]) -> list[Game]:
     return [*all_games, *hypothetical]
 
 
-def _margin_sigma(draw_rate: float) -> float:
-    target_draw_rate = min(0.35, max(0.03, draw_rate))
-    lower_sigma, upper_sigma = 0.1, 20.0
-    for _ in range(60):
-        sigma = (lower_sigma + upper_sigma) / 2.0
-        equal_team_draw_rate = math.erf(0.5 / (sigma * math.sqrt(2.0)))
-        if equal_team_draw_rate > target_draw_rate:
-            lower_sigma = sigma
-        else:
-            upper_sigma = sigma
-    return (lower_sigma + upper_sigma) / 2.0
-
-
 def forecast_match(
     first_elo: float,
     second_elo: float,
@@ -99,40 +80,14 @@ def forecast_match(
     draw_rate: float,
     sigma_scale: float = FORECAST_SIGMA_SCALE,
 ) -> tuple[float, float, float]:
-    sigma = _margin_sigma(draw_rate) * sigma_scale
-    expected_margin = (first_elo - second_elo) / ELO_POINTS_PER_GOAL
-
-    def margin_cdf(value: float) -> float:
-        standardized = (value - expected_margin) / (sigma * math.sqrt(2.0))
-        return 0.5 * (1.0 + math.erf(standardized))
-
-    second_win = margin_cdf(-0.5)
-    draw_probability = margin_cdf(0.5) - second_win
-    first_win = 1.0 - margin_cdf(0.5)
-    return first_win, draw_probability, second_win
-
-
-def _sample_poisson(random_generator: random.Random, rate: float) -> int:
-    threshold = math.exp(-rate)
-    product = 1.0
-    count = 0
-    while product > threshold:
-        count += 1
-        product *= random_generator.random()
-    return count - 1
+    return normal_outcome_probabilities(
+        (first_elo - second_elo) / ELO_POINTS_PER_GOAL,
+        margin_sigma(draw_rate) * sigma_scale,
+    )
 
 
 def simulation_sigma(games: Iterable[Game]) -> float:
-    return _margin_sigma(estimate_draw_rate(games)) * FORECAST_SIGMA_SCALE
-
-
-def _knockout_probability(expected_margin: float, sigma: float) -> float:
-    """Win probability with a drawn knockout game settled 50/50."""
-
-    def margin_cdf(value: float) -> float:
-        return 0.5 * (1.0 + math.erf((value - expected_margin) / (sigma * math.sqrt(2.0))))
-
-    return 1.0 - 0.5 * margin_cdf(0.5) - 0.5 * margin_cdf(-0.5)
+    return margin_sigma(estimate_draw_rate(games)) * FORECAST_SIGMA_SCALE
 
 
 def playoff_status(
@@ -218,6 +173,7 @@ def forecast_final_standings(
     simulations: int = DEFAULT_SIMULATIONS,
     seed: int = int(LEAGUE_ID),
     strength_games: Iterable[Game] | None = None,
+    model: StrengthParameters = ModelParameters(),
 ) -> list[StandingForecast]:
     if simulations <= 0:
         raise ValueError("simulations must be positive")
@@ -225,18 +181,15 @@ def forecast_final_standings(
     all_games = list(games)
     model_games = all_games if strength_games is None else list(strength_games)
     ratings, _ = calculate_ratings(all_games)
-    strengths, _ = calculate_ratings(model_games)
     teams = sorted(ratings)
     team_index = {team: index for index, team in enumerate(teams)}
-    sigma = simulation_sigma(model_games)
+    fitted = fit_model(model, model_games, teams, with_errors=False)
+    losing_score_rate = average_losing_score(all_games)
     fixtures = [
         (
             team_index[game.away_team],
             team_index[game.home_team],
-            (
-                strengths[game.away_team].expected_margin_vs_average
-                - strengths[game.home_team].expected_margin_vs_average
-            ),
+            fitted.sampler(game.away_team, game.home_team, losing_score_rate),
         )
         for game in all_games
         if not game.completed and game.game_type.lower() == "regular season"
@@ -247,14 +200,9 @@ def forecast_final_standings(
     base_ties = [ratings[team].ties for team in teams]
     base_goal_difference = [ratings[team].goal_difference for team in teams]
     base_goals_against = [ratings[team].goals_against for team in teams]
-    losing_score_rate = average_losing_score(all_games)
-    team_strength = [
-        strengths[team].expected_margin_vs_average if team in strengths else 0.0
-        for team in teams
-    ]
     knockout = [
-        [_knockout_probability(first - second, sigma) for second in team_strength]
-        for first in team_strength
+        [fitted.knockout(first, second) if first != second else 0.5 for second in teams]
+        for first in teams
     ]
     totals = {
         "points": [0.0] * len(teams),
@@ -276,34 +224,25 @@ def forecast_final_standings(
         ties = base_ties.copy()
         goal_difference = base_goal_difference.copy()
         goals_against = base_goals_against.copy()
-        for away, home, expected_margin in fixtures:
-            sampled_margin = random_generator.gauss(expected_margin, sigma)
-            base_score = _sample_poisson(random_generator, losing_score_rate)
-            if sampled_margin > 0.5:
-                margin = max(1, round(sampled_margin))
+        for away, home, sample in fixtures:
+            away_goals, home_goals = sample(random_generator)
+            if away_goals > home_goals:
                 wins[away] += 1
                 losses[home] += 1
                 points[away] += 3
-                goal_difference[away] += margin
-                goal_difference[home] -= margin
-                goals_against[away] += base_score
-                goals_against[home] += base_score + margin
-            elif sampled_margin < -0.5:
-                margin = max(1, round(-sampled_margin))
+            elif away_goals < home_goals:
                 wins[home] += 1
                 losses[away] += 1
                 points[home] += 3
-                goal_difference[home] += margin
-                goal_difference[away] -= margin
-                goals_against[home] += base_score
-                goals_against[away] += base_score + margin
             else:
                 ties[away] += 1
                 ties[home] += 1
                 points[away] += 1
                 points[home] += 1
-                goals_against[away] += base_score
-                goals_against[home] += base_score
+            goal_difference[away] += away_goals - home_goals
+            goal_difference[home] += home_goals - away_goals
+            goals_against[away] += home_goals
+            goals_against[home] += away_goals
 
         order = list(range(len(teams)))
         random_generator.shuffle(order)
@@ -369,6 +308,7 @@ def forecast_history(
     simulations: int = DEFAULT_SIMULATIONS,
     seed: int = int(LEAGUE_ID),
     fixed_strengths: bool = False,
+    model: StrengthParameters = ModelParameters(),
 ) -> list[tuple[int, list[StandingForecast]]]:
     all_games = list(games)
     strength_games = all_games if fixed_strengths else None
@@ -387,6 +327,7 @@ def forecast_history(
                     simulations=simulations,
                     seed=seed,
                     strength_games=strength_games,
+                    model=model,
                 ),
             )
         )

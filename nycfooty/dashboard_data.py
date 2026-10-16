@@ -1,21 +1,38 @@
+import json
 import math
 from datetime import datetime
 from statistics import fmean
 
-from nycfooty.backtest import ModelParameters, WalkForwardBacktest
-from nycfooty.constants import INITIAL_ELO, LEAGUE_ID, MARGIN_CAP, PROFILE_URL, TEAM_COLORS
+from nycfooty.backtest import WalkForwardBacktest
+from nycfooty.constants import (
+    ELO_POINTS_PER_GOAL,
+    INITIAL_ELO,
+    LEAGUE_ID,
+    MARGIN_CAP,
+    PROFILE_URL,
+    TEAM_COLORS,
+)
 from nycfooty.flow import calculate_dominance_flow
 from nycfooty.forecast import (
     average_losing_score,
     estimate_draw_rate,
-    forecast_match,
     playoff_status,
-    simulation_sigma,
     unplayed_pairings,
 )
 from nycfooty.graph import analyze_result_graph
 from nycfooty.models import Game, StandingForecast
-from nycfooty.ratings import calculate_ratings, power_rating, power_rating_interval
+from nycfooty.ratings import calculate_ratings, power_rating
+from nycfooty.strength_models import (
+    DEFAULT_MODEL,
+    DIXON_COLES_MAX_GOALS,
+    MODEL_CHOICES,
+    DixonColesFit,
+    StrengthParameters,
+    describe_parameters,
+    fit_model,
+)
+
+POWER_RANGE_Z = 1.2815515655446004
 
 
 def _date_label(value: datetime, *, include_time: bool = False) -> str:
@@ -46,9 +63,9 @@ def _projection_rows(season_forecast: list[StandingForecast]) -> list[dict[str, 
     ]
 
 
-def _weekly_recap(games: list[Game]) -> dict[str, object] | None:
+def _weekly_recap(games: list[Game], parameters: StrengthParameters) -> dict[str, object] | None:
     """Point-in-time pre-game odds, replayed with today's settings, scored against results."""
-    predictions = WalkForwardBacktest(games).predictions(ModelParameters())
+    predictions = WalkForwardBacktest(games).predictions(parameters)
     if not predictions:
         return None
     week_of = {game.game_id: game.week for game in games}
@@ -154,8 +171,20 @@ def build_dashboard_data(
     fixed_strength_history: list[tuple[int, list[StandingForecast]]] | None = None,
     round_robin_history: list[tuple[int, list[StandingForecast]]] | None = None,
     round_robin_fixed_history: list[tuple[int, list[StandingForecast]]] | None = None,
+    model: str = DEFAULT_MODEL,
 ) -> dict[str, object]:
-    ratings, history = calculate_ratings(games)
+    choice = MODEL_CHOICES[model]
+    ratings, _ = calculate_ratings(games)
+    team_names = sorted(ratings)
+    fitted = fit_model(choice.parameters, games, team_names)
+    strength = fitted.strengths
+
+    def elo(team: str) -> float:
+        return INITIAL_ELO + ELO_POINTS_PER_GOAL * strength[team]
+
+    def power(team: str) -> float:
+        return power_rating(elo(team))
+
     graph = analyze_result_graph(games)
     top_four_status = playoff_status(games, spots=4)
     first_status = playoff_status(games, spots=1)
@@ -169,15 +198,32 @@ def build_dashboard_data(
         key=lambda game: game.played_at,
     )
     draw_rate = estimate_draw_rate(games)
-    ranked_teams = sorted(ratings, key=lambda team: ratings[team].elo, reverse=True)
+    ranked_teams = sorted(team_names, key=lambda team: strength[team], reverse=True)
+    # Colors follow the default model's order so each team keeps its color across models.
+    default_strength = (
+        strength
+        if model == DEFAULT_MODEL
+        else fit_model(MODEL_CHOICES[DEFAULT_MODEL].parameters, games, team_names, with_errors=False).strengths
+    )
     colors = {
         team: TEAM_COLORS[index % len(TEAM_COLORS)]
-        for index, team in enumerate(ranked_teams)
+        for index, team in enumerate(sorted(team_names, key=lambda team: default_strength[team], reverse=True))
     }
 
+    rated_weeks = sorted(
+        {game.week for game in games if game.completed and game.game_type.lower() == "regular season"}
+    )
     snapshots = {0: {team: INITIAL_ELO for team in ranked_teams}}
-    for snapshot in history:
-        snapshots[snapshot.week] = snapshot.ratings
+    for week in rated_weeks:
+        week_fit = fit_model(
+            choice.parameters,
+            [game for game in games if game.week <= week],
+            team_names,
+            with_errors=False,
+        )
+        snapshots[week] = {
+            team: INITIAL_ELO + ELO_POINTS_PER_GOAL * week_fit.strengths[team] for team in team_names
+        }
     weeks = sorted(snapshots)
     round_robin_forecast = round_robin_history[-1][1] if round_robin_history else []
     series_teams = [item.team for item in season_forecast] or ranked_teams
@@ -213,14 +259,14 @@ def build_dashboard_data(
             {
                 "team": team,
                 "color": colors[team],
-                "power": power_rating(ratings[team].elo),
+                "power": power(team),
                 "scheduledOpponentCount": len(scheduled_opponents[team]),
                 "possibleOpponentCount": len(ranked_teams) - 1,
                 "unplayedOpponents": [
                     {
                         "team": opponent,
                         "rank": rank_by_team[opponent],
-                        "power": power_rating(ratings[opponent].elo),
+                        "power": power(opponent),
                     }
                     for opponent in opponents
                 ],
@@ -240,25 +286,17 @@ def build_dashboard_data(
         margin = (int(game.away_score) - int(game.home_score)) * (1 if is_away else -1)
         if MARGIN_CAP is not None:
             margin = max(-MARGIN_CAP, min(MARGIN_CAP, margin))
-        expected = (
-            ratings[team].expected_margin_vs_average
-            - ratings[opponent].expected_margin_vs_average
-        )
-        return round(margin - expected, 3)
+        return round(margin - fitted.expected_margin(team, opponent), 3)
 
     def opponent_fields(opponent: str) -> dict[str, object]:
         return {
             "opponent": opponent,
             "opponentRank": rank_by_team[opponent],
-            "opponentPower": power_rating(ratings[opponent].elo),
+            "opponentPower": power(opponent),
         }
 
     def forecast_fields(team: str, opponent: str) -> dict[str, float]:
-        win, draw, loss = forecast_match(
-            ratings[team].elo,
-            ratings[opponent].elo,
-            draw_rate=draw_rate,
-        )
+        win, draw, loss = fitted.probabilities(team, opponent)
         return {"win": win, "draw": draw, "loss": loss}
 
     team_schedules = {}
@@ -339,8 +377,7 @@ def build_dashboard_data(
     }
     graph_nodes = []
     for team in sorted(ratings):
-        rating = ratings[team]
-        team_power = power_rating(rating.elo)
+        team_power = power(team)
         component = component_by_team[team]
         retained_credit = (
             dominance_flow.retained_credit[component]
@@ -423,10 +460,10 @@ def build_dashboard_data(
             ]
             for team in ranked_teams
         }
-        power = {
+        average_power = {
             team: (
                 5.0
-                + sum(ratings[opponent].expected_margin_vs_average for opponent in faced)
+                + sum(strength[opponent] for opponent in faced)
                 / len(faced)
                 if faced
                 else None
@@ -434,11 +471,11 @@ def build_dashboard_data(
             for team, faced in opponents.items()
         }
         hardest_first = sorted(
-            (team for team in ranked_teams if power[team] is not None),
-            key=lambda team: power[team],
+            (team for team in ranked_teams if average_power[team] is not None),
+            key=lambda team: average_power[team],
             reverse=True,
         )
-        return opponents, power, {team: rank for rank, team in enumerate(hardest_first, start=1)}
+        return opponents, average_power, {team: rank for rank, team in enumerate(hardest_first, start=1)}
 
     remaining_opponents, remaining_power, schedule_rank = schedule_strength(completed=False)
     _, played_power, played_rank = schedule_strength(completed=True)
@@ -465,16 +502,16 @@ def build_dashboard_data(
     team_rows = []
     for rank, team in enumerate(ranked_teams, start=1):
         rating = ratings[team]
-        power_low, power_high = power_rating_interval(rating)
+        radius = POWER_RANGE_Z * fitted.standard_errors[team]
         team_rows.append(
             {
                 "rank": rank,
                 "name": team,
                 "color": colors[team],
-                "power": power_rating(rating.elo),
-                "powerLow": power_low,
-                "powerHigh": power_high,
-                "elo": round(rating.elo, 1),
+                "power": power(team),
+                "powerLow": max(1.0, 5.0 + strength[team] - radius),
+                "powerHigh": min(10.0, 5.0 + strength[team] + radius),
+                "elo": round(elo(team), 1),
                 "games": rating.games,
                 "ratedGames": rating.rated_games,
                 "wins": rating.wins,
@@ -483,10 +520,7 @@ def build_dashboard_data(
                 "goalsFor": rating.goals_for,
                 "goalsAgainst": rating.goals_against,
                 "goalDifference": rating.goal_difference,
-                "expectedMarginVsAverage": round(
-                    rating.expected_margin_vs_average,
-                    3,
-                ),
+                "expectedMarginVsAverage": round(strength[team], 3),
                 "currentPoints": 3 * rating.wins + rating.ties,
                 "remainingGames": len(remaining_opponents[team]),
                 "remainingOpponentPower": rounded(remaining_power[team]),
@@ -500,11 +534,7 @@ def build_dashboard_data(
 
     fixtures = []
     for game in upcoming:
-        away_win, draw, home_win = forecast_match(
-            ratings[game.away_team].elo,
-            ratings[game.home_team].elo,
-            draw_rate=draw_rate,
-        )
+        away_win, draw, home_win = fitted.probabilities(game.away_team, game.home_team)
         fixtures.append(
             {
                 "gameId": game.game_id,
@@ -535,11 +565,7 @@ def build_dashboard_data(
 
     matchup_probabilities = {
         first: {
-            second: forecast_match(
-                ratings[first].elo,
-                ratings[second].elo,
-                draw_rate=draw_rate,
-            )
+            second: fitted.probabilities(first, second)
             for second in ranked_teams
             if second != first
         }
@@ -560,6 +586,13 @@ def build_dashboard_data(
             "simulations": simulations,
             "sourceUrl": PROFILE_URL,
             "nextWeek": upcoming[0].week if upcoming else None,
+            "model": {
+                "id": model,
+                "label": choice.label,
+                "summary": choice.summary,
+                "details": choice.details,
+                "parameters": describe_parameters(choice.parameters),
+            },
         },
         "teams": team_rows,
         "ratingHistory": {
@@ -605,9 +638,12 @@ def build_dashboard_data(
         },
         "scheduleGaps": schedule_gaps,
         "simulator": {
+            "kind": fitted.kind,
             "seed": int(LEAGUE_ID),
             "simulations": simulations,
-            "sigma": simulation_sigma(games),
+            "sigma": None if isinstance(fitted, DixonColesFit) else fitted.sigma,
+            "rho": fitted.rho if isinstance(fitted, DixonColesFit) else None,
+            "maxGoals": DIXON_COLES_MAX_GOALS,
             "averageLosingScore": average_losing_score(games),
             "playoffSpots": 4,
             "teams": [
@@ -625,10 +661,7 @@ def build_dashboard_data(
             "fixtures": [
                 {
                     **fixture,
-                    "expectedMargin": (
-                        ratings[fixture["awayTeam"]].expected_margin_vs_average
-                        - ratings[fixture["homeTeam"]].expected_margin_vs_average
-                    ),
+                    **fitted.simulator_fixture(fixture["awayTeam"], fixture["homeTeam"]),
                 }
                 for fixture, game in zip(fixtures, upcoming, strict=True)
                 if game.game_type.lower() == "regular season"
@@ -646,7 +679,7 @@ def build_dashboard_data(
             }
             for team in ranked_teams
         },
-        "recap": _weekly_recap(games),
+        "recap": _weekly_recap(games, choice.parameters),
         "graph": {
             "nodes": graph_nodes,
             "edges": graph_edges,
@@ -679,4 +712,30 @@ def build_dashboard_data(
         "results": results,
         "matchups": matchup_probabilities,
         "sourceStandings": standings,
+    }
+
+
+def build_dashboard_bundle(
+    payloads: dict[str, dict[str, object]],
+    comparison: list[dict[str, str]],
+) -> dict[str, object]:
+    """Store payload keys identical across models once; the browser merges shared + models[id]."""
+    first = next(iter(payloads.values()))
+    shared = {
+        key: value
+        for key, value in first.items()
+        if all(
+            json.dumps(payload[key], sort_keys=True) == json.dumps(value, sort_keys=True)
+            for payload in payloads.values()
+        )
+    }
+    return {
+        "defaultModel": DEFAULT_MODEL,
+        "modelOrder": list(payloads),
+        "comparison": comparison,
+        "shared": shared,
+        "models": {
+            model: {key: value for key, value in payload.items() if key not in shared}
+            for model, payload in payloads.items()
+        },
     }

@@ -1,40 +1,30 @@
-"""Walk-forward backtest and hyperparameter search for the margin model."""
+"""Walk-forward backtest and hyperparameter search for the strength models."""
 
 import math
 import random
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from itertools import product
 from statistics import fmean
 
-from nycfooty.constants import (
-    DRAW_PRIOR_GAMES,
-    DRAW_PRIOR_RATE,
-    ELO_POINTS_PER_GOAL,
-    FORECAST_SIGMA_SCALE,
-    INITIAL_ELO,
-    MARGIN_CAP,
-    MARGIN_RIDGE,
-)
-from nycfooty.forecast import estimate_draw_rate, forecast_match
+from nycfooty.forecast import estimate_draw_rate
 from nycfooty.models import Game
-from nycfooty.ratings import _fit_margin_strengths
+from nycfooty.strength_models import (
+    DixonColesParameters,
+    FittedModel,
+    MarginFit,
+    ModelParameters,
+    StrengthParameters,
+    fit_model,
+    margin_sigma,
+)
 from nycfooty.validation import ARCHIVE_ELIGIBLE_LEAGUES, VALIDATION_SAMPLE
 
 TUNING_LEAGUES = VALIDATION_SAMPLE
 TEST_LEAGUES = tuple(
     league for league in ARCHIVE_ELIGIBLE_LEAGUES if league not in VALIDATION_SAMPLE
 )
-
-
-@dataclass(frozen=True)
-class ModelParameters:
-    ridge: float = MARGIN_RIDGE
-    margin_cap: int | None = MARGIN_CAP
-    draw_prior_rate: float = DRAW_PRIOR_RATE
-    draw_prior_games: float = DRAW_PRIOR_GAMES
-    sigma_scale: float = FORECAST_SIGMA_SCALE
 
 
 PRE_TUNING_PARAMETERS = ModelParameters(
@@ -117,29 +107,34 @@ class WalkForwardBacktest:
             )
             for day in days[1:]
         ]
-        self._strengths: dict[tuple[int, float, int | None], dict[str, float]] = {}
+        self._fits: dict[tuple, FittedModel] = {}
 
-    def _fit(self, index: int, ridge: float, margin_cap: int | None) -> dict[str, float]:
-        key = (index, ridge, margin_cap)
-        if key not in self._strengths:
-            training, _ = self._snapshots[index]
-            self._strengths[key], _ = _fit_margin_strengths(
-                [game for game in training if not game.is_forfeit],
-                self._teams,
-                ridge=ridge,
-                margin_cap=margin_cap,
-            )
-        return self._strengths[key]
+    def _fit(self, index: int, parameters: StrengthParameters) -> FittedModel:
+        training, _ = self._snapshots[index]
+        if isinstance(parameters, DixonColesParameters):
+            key = (index, "goals", parameters.ridge, parameters.half_life_days, parameters.goal_cap)
+        elif parameters.result_weight == 0.0:
+            key = (index, "margin", parameters.ridge, parameters.margin_cap)
+        else:
+            key = (index, parameters)
+        if key not in self._fits:
+            self._fits[key] = fit_model(parameters, training, self._teams, with_errors=False)
+        fitted = self._fits[key]
+        # Rho and the draw-implied sigma change predictions without changing fitted strengths.
+        if isinstance(parameters, DixonColesParameters):
+            return replace(fitted, rho=parameters.rho)
+        draw_rate = estimate_draw_rate(
+            training,
+            prior_rate=parameters.draw_prior_rate,
+            prior_games=parameters.draw_prior_games,
+        )
+        assert isinstance(fitted, MarginFit)
+        return replace(fitted, sigma=margin_sigma(draw_rate) * parameters.sigma_scale)
 
-    def predictions(self, parameters: ModelParameters) -> list[BacktestPrediction]:
+    def predictions(self, parameters: StrengthParameters) -> list[BacktestPrediction]:
         predictions = []
         for index, (training, targets) in enumerate(self._snapshots):
-            strengths = self._fit(index, parameters.ridge, parameters.margin_cap)
-            draw_rate = estimate_draw_rate(
-                training,
-                prior_rate=parameters.draw_prior_rate,
-                prior_games=parameters.draw_prior_games,
-            )
+            fitted = self._fit(index, parameters)
             neutral_draw = estimate_draw_rate(training)
             baseline = ((1.0 - neutral_draw) / 2.0, neutral_draw, (1.0 - neutral_draw) / 2.0)
             for game in targets:
@@ -151,12 +146,7 @@ class WalkForwardBacktest:
                         home_team=game.home_team,
                         away_score=int(game.away_score),
                         home_score=int(game.home_score),
-                        probabilities=forecast_match(
-                            INITIAL_ELO + ELO_POINTS_PER_GOAL * strengths[game.away_team],
-                            INITIAL_ELO + ELO_POINTS_PER_GOAL * strengths[game.home_team],
-                            draw_rate=draw_rate,
-                            sigma_scale=parameters.sigma_scale,
-                        ),
+                        probabilities=fitted.probabilities(game.away_team, game.home_team),
                         baseline=baseline,
                     )
                 )
@@ -165,15 +155,15 @@ class WalkForwardBacktest:
 
 def walk_forward_predictions(
     games: Iterable[Game],
-    parameters: ModelParameters = ModelParameters(),
+    parameters: StrengthParameters = ModelParameters(),
 ) -> list[BacktestPrediction]:
     return WalkForwardBacktest(games).predictions(parameters)
 
 
 def evaluate_grid(
     league_games: Mapping[str, Sequence[Game]],
-    grid: Iterable[ModelParameters] = SEARCH_GRID,
-) -> dict[ModelParameters, list[BacktestPrediction]]:
+    grid: Iterable[StrengthParameters] = SEARCH_GRID,
+) -> dict[StrengthParameters, list[BacktestPrediction]]:
     backtests = [WalkForwardBacktest(games) for games in league_games.values()]
     return {
         parameters: [

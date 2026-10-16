@@ -74,18 +74,31 @@ def _fit_margin_strengths(
         target[home] -= margin
 
     strengths = _solve_linear_system(normal_matrix, target)
-    standard_errors = []
-    for index in range(len(teams)):
-        unit_vector = [0.0] * len(teams)
-        unit_vector[index] = 1.0
-        inverse_column = _solve_linear_system(normal_matrix, unit_vector)
-        standard_errors.append(
-            GOAL_MARGIN_OBSERVATION_SIGMA * math.sqrt(max(0.0, inverse_column[index]))
-        )
     return (
         dict(zip(teams, strengths, strict=True)),
-        dict(zip(teams, standard_errors, strict=True)),
+        relative_standard_errors(normal_matrix, teams, GOAL_MARGIN_OBSERVATION_SIGMA),
     )
+
+
+def relative_standard_errors(
+    precision: list[list[float]],
+    teams: list[str],
+    scale: float = 1.0,
+) -> dict[str, float]:
+    """Standard error of each strength minus the league average.
+
+    The league's overall level is pinned only by the ridge, so including it would make
+    every range grow without bound as the ridge shrinks.
+    """
+    count = len(teams)
+    errors = {}
+    for index, team in enumerate(teams):
+        contrast = [-1.0 / count] * count
+        contrast[index] += 1.0
+        solved = _solve_linear_system(precision, contrast)
+        variance = sum(left * right for left, right in zip(contrast, solved, strict=True))
+        errors[team] = scale * math.sqrt(max(0.0, variance))
+    return errors
 
 
 def calculate_ratings(

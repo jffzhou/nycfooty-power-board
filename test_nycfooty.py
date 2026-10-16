@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from nycfooty.backtest import ModelParameters, walk_forward_predictions
 from nycfooty.dashboard_data import build_dashboard_data
+from nycfooty.strength_models import MODEL_CHOICES, fit_model
 from nycfooty import (
   analyze_result_graph,
   calculate_dominance_flow,
@@ -159,6 +160,36 @@ class RatingTests(unittest.TestCase):
             three_game_ratings["Alpha FC"].strength_standard_error,
         )
 
+    def test_narrow_winner_and_blowout_winner(self) -> None:
+        """Weighting results lets a team that beat everyone narrowly outrank one that lost to it but ran up a blowout."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        games = [
+            replace(fixture, game_id="1", away_team="A", home_team="B", away_score=1, home_score=0),
+            replace(fixture, game_id="2", away_team="A", home_team="C", away_score=1, home_score=0),
+            replace(fixture, game_id="3", away_team="B", home_team="C", away_score=6, home_score=0),
+        ]
+
+        margin = fit_model(ModelParameters(result_weight=0.0), games).strengths
+        results = fit_model(ModelParameters(result_weight=1.0), games).strengths
+
+        self.assertGreater(margin["B"], margin["A"])
+        self.assertGreater(results["A"], results["B"])
+
+    def test_near_zero_ridge(self) -> None:
+        """Power ranges measure uncertainty relative to the league average, not the unidentifiable league level."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        games = [
+            replace(fixture, game_id=str(index), played_at=fixture.played_at + timedelta(days=7 * index), away_team=away, home_team=home, away_score=away_score, home_score=home_score)
+            for index, (away, home, away_score, home_score) in enumerate(
+                [("A", "B", 2, 1), ("B", "C", 1, 1), ("C", "A", 0, 3), ("A", "B", 1, 0)]
+            )
+        ]
+        for result_weight in (0.0, 0.75):
+            with self.subTest(result_weight=result_weight):
+                small = fit_model(ModelParameters(ridge=1e-4, result_weight=result_weight), games)
+                tiny = fit_model(ModelParameters(ridge=1e-6, result_weight=result_weight), games)
+                self.assertAlmostEqual(small.standard_errors["A"], tiny.standard_errors["A"], places=2)
+
     def test_forecast_is_complete_and_favors_stronger_team(self) -> None:
         forecast = forecast_match(1580.0, 1450.0, draw_rate=0.2)
 
@@ -272,7 +303,7 @@ class DashboardDataTests(unittest.TestCase):
         self.assertIsNone(teams["B"]["remainingOpponentPower"])
 
     def test_upcoming_fixture_between_unequal_teams(self) -> None:
-        """The browser simulator's margin and noise must reproduce the published match odds."""
+        """The browser simulator's payload must reproduce the published match odds under every model."""
         fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
         games = [
             replace(fixture, game_id="1", away_team="A", home_team="B", away_score=3, home_score=1),
@@ -288,18 +319,46 @@ class DashboardDataTests(unittest.TestCase):
                 home_score=None,
             ),
         ]
+        for model in MODEL_CHOICES:
+            with self.subTest(model=model):
+                simulator = build_dashboard_data(
+                    games,
+                    [],
+                    [],
+                    generated_at=datetime(2026, 1, 1),
+                    simulations=1,
+                    model=model,
+                )["simulator"]
 
-        simulator = build_dashboard_data(
-            games,
-            [],
-            [],
-            generated_at=datetime(2026, 1, 1),
-            simulations=1,
-        )["simulator"]
+                (upcoming,) = simulator["fixtures"]
+                if simulator["kind"] == "goals":
+                    away_win = self._dixon_coles_away_win(
+                        upcoming["awayRate"], upcoming["homeRate"], simulator["rho"], simulator["maxGoals"]
+                    )
+                else:
+                    standardized = (0.5 - upcoming["expectedMargin"]) / (simulator["sigma"] * math.sqrt(2.0))
+                    away_win = 1.0 - 0.5 * (1.0 + math.erf(standardized))
+                self.assertAlmostEqual(away_win, upcoming["awayWin"])
 
-        (upcoming,) = simulator["fixtures"]
-        standardized = (0.5 - upcoming["expectedMargin"]) / (simulator["sigma"] * math.sqrt(2.0))
-        self.assertAlmostEqual(1.0 - 0.5 * (1.0 + math.erf(standardized)), upcoming["awayWin"])
+    @staticmethod
+    def _dixon_coles_away_win(away_rate: float, home_rate: float, rho: float, max_goals: int) -> float:
+        corrections = {
+            (0, 0): 1.0 - away_rate * home_rate * rho,
+            (0, 1): 1.0 + away_rate * rho,
+            (1, 0): 1.0 + home_rate * rho,
+            (1, 1): 1.0 - rho,
+        }
+        cells = {
+            (away, home): math.exp(-away_rate - home_rate)
+            * away_rate**away
+            / math.factorial(away)
+            * home_rate**home
+            / math.factorial(home)
+            * max(0.0, corrections.get((away, home), 1.0))
+            for away in range(max_goals + 1)
+            for home in range(max_goals + 1)
+        }
+        return sum(value for (away, home), value in cells.items() if away > home) / sum(cells.values())
 
     def test_team_schedules_with_home_loss_and_unscheduled_pairing(self) -> None:
         """Each team's schedule is told from its own side and ends with its skipped opponent."""
@@ -404,26 +463,24 @@ class SeasonForecastTests(unittest.TestCase):
         self.assertGreater(by_team["A"].first_probability, 0.7)
 
     def test_single_remaining_fixture_between_unbanked_teams(self) -> None:
-        """Season simulation and match forecast must use the same margin noise."""
+        """Season simulation and match forecast must agree under every model."""
         fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
         strength_games = [replace(fixture, away_team="A", home_team="B", away_score=2, home_score=0)]
         remaining = [replace(strength_games[0], game_id="2", away_score=None, home_score=None)]
-        ratings, _ = calculate_ratings(strength_games)
-        win, draw, _ = forecast_match(
-            ratings["A"].elo,
-            ratings["B"].elo,
-            draw_rate=estimate_draw_rate(strength_games),
-        )
+        for model, choice in MODEL_CHOICES.items():
+            with self.subTest(model=model):
+                win, draw, _ = fit_model(choice.parameters, strength_games).probabilities("A", "B")
 
-        forecast = forecast_final_standings(
-            remaining,
-            simulations=40_000,
-            seed=7,
-            strength_games=strength_games,
-        )
+                forecast = forecast_final_standings(
+                    remaining,
+                    simulations=40_000,
+                    seed=7,
+                    strength_games=strength_games,
+                    model=choice.parameters,
+                )
 
-        by_team = {item.team: item for item in forecast}
-        self.assertAlmostEqual(by_team["A"].first_probability, win + draw / 2, delta=0.01)
+                by_team = {item.team: item for item in forecast}
+                self.assertAlmostEqual(by_team["A"].first_probability, win + draw / 2, delta=0.01)
 
     def test_completed_four_team_season(self) -> None:
         """Seeds 1 and 4 meet in one semifinal and seeds 2 and 3 in the other."""
@@ -434,12 +491,16 @@ class SeasonForecastTests(unittest.TestCase):
             replace(fixture, game_id="3", away_team="M", home_team="B", away_score=1, home_score=0),
             replace(fixture, game_id="4", away_team="Z", home_team="B", away_score=1, home_score=1),
         ]
+        for model, choice in MODEL_CHOICES.items():
+            with self.subTest(model=model):
+                forecast = {
+                    item.team: item
+                    for item in forecast_final_standings(games, simulations=1, seed=7, model=choice.parameters)
+                }
 
-        forecast = {item.team: item for item in forecast_final_standings(games, simulations=1, seed=7)}
-
-        self.assertAlmostEqual(forecast["Q"].final_probability + forecast["B"].final_probability, 1.0)
-        self.assertAlmostEqual(sum(item.champion_probability for item in forecast.values()), 1.0)
-        self.assertEqual(max(forecast.values(), key=lambda item: item.champion_probability).team, "Q")
+                self.assertAlmostEqual(forecast["Q"].final_probability + forecast["B"].final_probability, 1.0)
+                self.assertAlmostEqual(sum(item.champion_probability for item in forecast.values()), 1.0)
+                self.assertEqual(max(forecast.values(), key=lambda item: item.champion_probability).team, "Q")
 
     def test_two_chasers_meeting_in_last_game(self) -> None:
         """Two chasers who play each other cannot both catch the leader."""

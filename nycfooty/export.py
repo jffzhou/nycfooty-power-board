@@ -3,21 +3,18 @@ import json
 import os
 import shutil
 import subprocess
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
-from nycfooty.constants import DEFAULT_SIMULATIONS, DIST_ROOT, PROJECT_ROOT, WEB_ROOT
-from nycfooty.dashboard_data import build_dashboard_data
+from nycfooty.constants import DEFAULT_SIMULATIONS, DIST_ROOT, ELO_POINTS_PER_GOAL, INITIAL_ELO, PROJECT_ROOT, WEB_ROOT
+from nycfooty.dashboard_data import POWER_RANGE_Z, build_dashboard_bundle, build_dashboard_data
 from nycfooty.flow import calculate_dominance_flow
-from nycfooty.forecast import (
-    complete_round_robin,
-    estimate_draw_rate,
-    forecast_history,
-    forecast_match,
-)
+from nycfooty.forecast import complete_round_robin, forecast_history
 from nycfooty.graph import analyze_result_graph
 from nycfooty.models import Game, StandingForecast
-from nycfooty.ratings import calculate_ratings, power_rating, power_rating_interval
+from nycfooty.ratings import calculate_ratings, power_rating
+from nycfooty.strength_models import DEFAULT_MODEL, MODEL_CHOICES, fit_model
 
 
 def _write_csv(path: Path, rows: list[dict[str, object]], fields: list[str]) -> None:
@@ -110,22 +107,34 @@ def write_outputs(
     ratings, _ = calculate_ratings(games)
     result_graph = analyze_result_graph(games)
     dominance_flow = calculate_dominance_flow(result_graph)
-    projection_history = forecast_history(games, simulations=simulations)
-    fixed_strength_history = forecast_history(
-        games,
-        simulations=simulations,
-        fixed_strengths=True,
-    )
     round_robin_games = complete_round_robin(games)
-    round_robin_history = forecast_history(round_robin_games, simulations=simulations)
-    round_robin_fixed_history = forecast_history(
-        round_robin_games,
-        simulations=simulations,
-        fixed_strengths=True,
-    )
+    scenarios = {"schedule": games, "roundRobin": round_robin_games}
+    jobs = [
+        (model, scenario, fixed)
+        for model in MODEL_CHOICES
+        for scenario in scenarios
+        for fixed in (False, True)
+    ]
+    with ProcessPoolExecutor(max_workers=min(len(jobs), os.cpu_count() or 1)) as pool:
+        futures = {
+            (model, scenario, fixed): pool.submit(
+                forecast_history,
+                scenarios[scenario],
+                simulations=simulations,
+                fixed_strengths=fixed,
+                model=MODEL_CHOICES[model].parameters,
+            )
+            for model, scenario, fixed in jobs
+        }
+        histories = {key: future.result() for key, future in futures.items()}
+    projection_history = histories[(DEFAULT_MODEL, "schedule", False)]
+    fixed_strength_history = histories[(DEFAULT_MODEL, "schedule", True)]
+    round_robin_history = histories[(DEFAULT_MODEL, "roundRobin", False)]
+    round_robin_fixed_history = histories[(DEFAULT_MODEL, "roundRobin", True)]
     season_forecast = projection_history[-1][1]
-    ranked_teams = sorted(ratings, key=lambda team: ratings[team].elo, reverse=True)
-    draw_rate = estimate_draw_rate(games)
+    fitted = fit_model(MODEL_CHOICES[DEFAULT_MODEL].parameters, games, sorted(ratings))
+    strength = fitted.strengths
+    ranked_teams = sorted(ratings, key=lambda team: strength[team], reverse=True)
     output_dir.mkdir(parents=True, exist_ok=True)
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -152,8 +161,8 @@ def write_outputs(
         {
             "rank": rank,
             "team": team,
-            "power_rating": power_rating(ratings[team].elo),
-            "elo": round(ratings[team].elo, 1),
+            "power_rating": power_rating(INITIAL_ELO + ELO_POINTS_PER_GOAL * strength[team]),
+            "elo": round(INITIAL_ELO + ELO_POINTS_PER_GOAL * strength[team], 1),
             "games": ratings[team].games,
             "rated_games": ratings[team].rated_games,
             "wins": ratings[team].wins,
@@ -162,16 +171,10 @@ def write_outputs(
             "goals_for": ratings[team].goals_for,
             "goals_against": ratings[team].goals_against,
             "goal_difference": ratings[team].goal_difference,
-            "expected_margin_vs_average": round(
-                ratings[team].expected_margin_vs_average,
-                3,
-            ),
-            "strength_standard_error": round(
-                ratings[team].strength_standard_error,
-                3,
-            ),
-            "power_80_low": round(power_rating_interval(ratings[team])[0], 2),
-            "power_80_high": round(power_rating_interval(ratings[team])[1], 2),
+            "expected_margin_vs_average": round(strength[team], 3),
+            "strength_standard_error": round(fitted.standard_errors[team], 3),
+            "power_80_low": round(max(1.0, 5.0 + strength[team] - POWER_RANGE_Z * fitted.standard_errors[team]), 2),
+            "power_80_high": round(min(10.0, 5.0 + strength[team] + POWER_RANGE_Z * fitted.standard_errors[team]), 2),
         }
         for rank, team in enumerate(ranked_teams, start=1)
     ]
@@ -179,11 +182,7 @@ def write_outputs(
     for game in games:
         if game.completed:
             continue
-        away_win, draw, home_win = forecast_match(
-            ratings[game.away_team].elo,
-            ratings[game.home_team].elo,
-            draw_rate=draw_rate,
-        )
+        away_win, draw, home_win = fitted.probabilities(game.away_team, game.home_team)
         forecast_rows.append(
             {
                 "game_id": game.game_id,
@@ -274,19 +273,29 @@ def write_outputs(
     ]
     _write_csv(outputs["flow"], flow_rows, list(flow_rows[0]))
 
-    dashboard_data = build_dashboard_data(
-        games,
-        standings,
-        season_forecast,
-        generated_at=generated_at,
-        simulations=simulations,
-        projection_history=projection_history,
-        fixed_strength_history=fixed_strength_history,
-        round_robin_history=round_robin_history,
-        round_robin_fixed_history=round_robin_fixed_history,
+    payloads = {
+        model: build_dashboard_data(
+            games,
+            standings,
+            histories[(model, "schedule", False)][-1][1],
+            generated_at=generated_at,
+            simulations=simulations,
+            projection_history=histories[(model, "schedule", False)],
+            fixed_strength_history=histories[(model, "schedule", True)],
+            round_robin_history=histories[(model, "roundRobin", False)],
+            round_robin_fixed_history=histories[(model, "roundRobin", True)],
+            model=model,
+        )
+        for model in MODEL_CHOICES
+    }
+    comparison_path = output_dir / "data" / "model_comparison.csv"
+    comparison = (
+        list(csv.DictReader(comparison_path.open(encoding="utf-8")))
+        if comparison_path.exists()
+        else []
     )
     (WEB_ROOT / "generated-data.json").write_text(
-        json.dumps(dashboard_data, indent=2, ensure_ascii=True),
+        json.dumps(build_dashboard_bundle(payloads, comparison), indent=2, ensure_ascii=True),
         encoding="utf-8",
     )
     _build_dashboard(outputs["dashboard"])

@@ -1,12 +1,17 @@
-import dashboardData from '../generated-data.json';
+import bundle from '../generated-data.json';
 import '../styles.css';
 import { renderResultGraph } from './graph.js';
 import { renderOddsCharts } from './odds-chart.js';
 import { renderRatingChart } from './rating-chart.js';
-import { bindScenarioToggle, renderDashboard, renderProjection, renderTeamView } from './render.js';
+import { bindScenarioToggle, renderDashboard, renderModelSwitch, renderProjection, renderTeamView } from './render.js';
 import { renderSimulator } from './simulator.js';
 import { initTabs } from './tabs.js';
 
+const requested = new URLSearchParams(location.search).get('model');
+const modelId = bundle.models[requested] ? requested : bundle.defaultModel;
+const dashboardData = { ...bundle.shared, ...bundle.models[modelId] };
+
+renderModelSwitch(bundle, modelId);
 renderDashboard(dashboardData);
 renderSimulator(dashboardData.simulator);
 const selectTeam = renderTeamView(dashboardData);

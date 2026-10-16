@@ -28,13 +28,58 @@ function poisson(random, rate) {
   return count - 1;
 }
 
+// Mirrors dixon_coles_score_table in nycfooty/strength_models.py, as cumulative probabilities.
+function dixonColesTable(awayRate, homeRate, rho, maxGoals) {
+  const pmf = (rate) => {
+    const values = [Math.exp(-rate)];
+    for (let goals = 1; goals <= maxGoals; goals += 1) values.push(values[goals - 1] * rate / goals);
+    return values;
+  };
+  const tau = (away, home) => {
+    if (away === 0 && home === 0) return 1 - awayRate * homeRate * rho;
+    if (away === 0 && home === 1) return 1 + awayRate * rho;
+    if (away === 1 && home === 0) return 1 + homeRate * rho;
+    if (away === 1 && home === 1) return 1 - rho;
+    return 1;
+  };
+  const awayPmf = pmf(awayRate);
+  const homePmf = pmf(homeRate);
+  const cells = [];
+  let total = 0;
+  for (let away = 0; away <= maxGoals; away += 1) {
+    for (let home = 0; home <= maxGoals; home += 1) {
+      const probability = awayPmf[away] * homePmf[home] * Math.max(0, tau(away, home));
+      total += probability;
+      cells.push({ away, home, probability });
+    }
+  }
+  let running = 0;
+  return cells.map((cell) => {
+    running += cell.probability / total;
+    return { away: cell.away, home: cell.home, cumulative: running };
+  });
+}
+
+function sampleScore(table, value) {
+  let low = 0;
+  let high = table.length - 1;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (table[middle].cumulative < value) low = middle + 1;
+    else high = middle;
+  }
+  return table[low];
+}
+
 export function simulateSeason(model, locks) {
   const count = model.teams.length;
   const index = new Map(model.teams.map((team, position) => [team.team, position]));
+  const goalsModel = model.kind === 'goals';
   const fixtures = model.fixtures.map((fixture) => ({
     away: index.get(fixture.awayTeam),
     home: index.get(fixture.homeTeam),
     mean: fixture.expectedMargin,
+    table: goalsModel ? dixonColesTable(fixture.awayRate, fixture.homeRate, model.rho, model.maxGoals) : null,
     lock: locks.get(fixture.gameId),
   }));
   const totals = {
@@ -57,17 +102,19 @@ export function simulateSeason(model, locks) {
     });
     for (const fixture of fixtures) {
       // Draw for every fixture, locked or not, so the baseline and scenario share random numbers.
-      const sampled = fixture.mean + model.sigma * gaussian(random);
-      const base = poisson(random, model.averageLosingScore);
-      let awayGoals = base;
-      let homeGoals = base;
-      if (fixture.lock) {
-        ({ away: awayGoals, home: homeGoals } = fixture.lock);
-      } else if (sampled > 0.5) {
-        awayGoals = base + Math.max(1, Math.round(sampled));
-      } else if (sampled < -0.5) {
-        homeGoals = base + Math.max(1, Math.round(-sampled));
+      let awayGoals;
+      let homeGoals;
+      if (fixture.table) {
+        ({ away: awayGoals, home: homeGoals } = sampleScore(fixture.table, random()));
+      } else {
+        const sampled = fixture.mean + model.sigma * gaussian(random);
+        const base = poisson(random, model.averageLosingScore);
+        awayGoals = base;
+        homeGoals = base;
+        if (sampled > 0.5) awayGoals = base + Math.max(1, Math.round(sampled));
+        else if (sampled < -0.5) homeGoals = base + Math.max(1, Math.round(-sampled));
       }
+      if (fixture.lock) ({ away: awayGoals, home: homeGoals } = fixture.lock);
       if (awayGoals > homeGoals) points[fixture.away] += 3;
       else if (homeGoals > awayGoals) points[fixture.home] += 3;
       else {
