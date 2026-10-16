@@ -52,7 +52,9 @@ uv run python -m nycfooty
 The refresh command fetches the data, runs 25,000 seeded season simulations,
 exports CSV/JSON, and invokes Vite to rebuild the standalone dashboard.
 
-Open `dashboard.html` directly in a browser. Each refresh writes:
+Open `dashboard.html` directly in a browser. At phone widths (640px and below)
+the layout hides secondary table columns and stacks the pairing table into
+cards. Each refresh writes:
 
 - `dashboard.html`: tabbed dashboard. Rankings (power table, rating paths),
   Teams (each team's results with margin vs expectation, upcoming forecasts,

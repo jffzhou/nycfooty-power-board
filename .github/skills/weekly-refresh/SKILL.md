@@ -22,9 +22,10 @@ description: 'Refresh NYC Footy league 5086028 after a new week of results: arch
    - If a fixture was postponed or rescheduled, check that week labels and `unplayed_pairings` still make sense.
 4. Run `uv run python -m unittest`, then `uv run python -m nycfooty`.
 5. Score the week against the archived forecast: `uv run python .github/skills/weekly-refresh/scripts/score_week.py <N>`.
-6. Report from the regenerated CSVs, not from memory:
+6. Report from the regenerated CSVs, not from memory. The CSVs describe the default goal-margin model only; the `results` and `dixon-coles` models exist only in the dashboard payload.
    - ratings and 80% ranges: `data/ratings.csv`
    - projections for both scenarios: `data/projected_standings.csv` and `data/projected_standings_round_robin.csv`
    - whether the SCC and flow availability changed: `data/dominance_flow.csv`
-7. Check the dashboard over local HTTP (see the port rules in `copilot-instructions.md`). Toggle both schedule scenarios.
+7. Check the dashboard over local HTTP (see the port rules in `copilot-instructions.md`). Toggle both schedule scenarios and all three models (`?model=results`, `?model=dixon-coles`), and check a 390px phone width.
 8. Update `README.md` only with durable facts. Keep weekly numbers out of the docs; the dashboard and CSVs carry them.
+9. Commit the regenerated outputs and the new archive files as `Refresh through week <N>`. Pushing `main` publishes the public site.
