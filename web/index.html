@@ -48,7 +48,7 @@
         <p class="section-note">5.0 is league average; +1.0 means one expected goal above average. Click a team for its schedule.</p>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Rank</th><th>Team</th><th>Power / 80% range</th><th>W-L-T</th><th>GD</th><th>Model strength</th></tr></thead>
+        <thead><tr><th data-short="#">Rank</th><th>Team</th><th>Power / 80% range</th><th>W&#8209;L&#8209;T</th><th>GD</th><th class="rating-bar-cell">Model strength</th></tr></thead>
         <tbody id="rankings-body"></tbody>
       </table></div>
     </section>
@@ -89,7 +89,7 @@
         <div><span class="kicker">All teams</span><h2>Pairings that never meet</h2></div>
         <p class="section-note">Each team skips one opponent. The forecast is for a hypothetical game; top-4 odds compare the real schedule with a full round robin.</p>
       </div>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table class="stack-phone">
         <thead><tr><th>Never meet</th><th>Forecast if they played</th><th>Top 4: real schedule &rarr; full round robin</th></tr></thead>
         <tbody id="gaps-body"></tbody>
       </table></div>
@@ -106,7 +106,7 @@
         </div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Rank</th><th>Team</th><th>Now</th><th>Expected remaining</th><th>Projected points</th><th>Projected W-L-T</th><th>Avg finish</th><th>Finish 1st</th><th>Top 4</th><th>Make final</th><th>Champion</th><th>Status</th></tr></thead>
+        <thead><tr><th data-short="#">Rank</th><th>Team</th><th class="mh">Now</th><th class="mh">Expected remaining</th><th data-short="Proj">Projected points</th><th class="mh">Projected W-L-T</th><th class="mh">Avg finish</th><th data-short="1st">Finish 1st</th><th>Top 4</th><th class="mh">Make final</th><th data-short="Champ">Champion</th><th class="mh">Status</th></tr></thead>
         <tbody id="projection-body"></tbody>
       </table></div>
       <p class="projection-note"><span class="scenario-note"></span> Top four make the playoffs: 1st plays 4th and 2nd plays 3rd, then the final, with a drawn knockout game counted as 50/50. Status is points-only, and ties count against a team because tiebreakers are unknown.</p>
@@ -143,8 +143,8 @@
           <div class="table-wrap"><table class="sim-table">
             <colgroup><col><col span="3" class="sim-num"><col class="sim-num-narrow"><col span="4" class="sim-num"></colgroup>
             <thead>
-              <tr class="sim-group-row"><th rowspan="2">Team</th><th colspan="4">Real results only<small id="sim-real-head"></small></th><th colspan="4" class="sim-whatif sim-group-start">What-if<small id="sim-whatif-head"></small></th></tr>
-              <tr><th>Proj. pts</th><th>Avg finish</th><th>Finish 1st</th><th>Top 4</th><th class="sim-whatif sim-group-start">Proj. pts</th><th class="sim-whatif">Avg finish</th><th class="sim-whatif">Finish 1st</th><th class="sim-whatif">Top 4</th></tr>
+              <tr class="sim-group-row"><th rowspan="2">Team</th><th colspan="4" id="sim-real-group">Real results only<small id="sim-real-head"></small></th><th colspan="4" id="sim-whatif-group" class="sim-whatif sim-group-start">What-if<small id="sim-whatif-head"></small></th></tr>
+              <tr><th class="mh">Proj. pts</th><th class="mh">Avg finish</th><th>Finish 1st</th><th>Top 4</th><th class="sim-whatif sim-group-start mh">Proj. pts</th><th class="sim-whatif mh">Avg finish</th><th class="sim-whatif sim-phone-group-start">Finish 1st</th><th class="sim-whatif">Top 4</th></tr>
             </thead>
             <tbody id="sim-body"></tbody>
           </table></div>

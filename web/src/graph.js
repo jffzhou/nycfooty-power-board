@@ -1,5 +1,6 @@
 import cytoscape from 'cytoscape';
 import dagre from 'cytoscape-dagre';
+import { PHONE } from './utils.js';
 
 cytoscape.use(dagre);
 
@@ -89,7 +90,7 @@ export function renderResultGraph(graph) {
     // Redraw a cached bitmap while panning or zooming, then re-render once the view settles.
     textureOnViewport: true,
     motionBlur: false,
-    minZoom: 0.45,
+    minZoom: 0.2,
     maxZoom: 2.2,
     style: [
       {
@@ -101,12 +102,13 @@ export function renderResultGraph(graph) {
           color: '#eef5f2',
           label: 'data(resultLabel)',
           shape: 'round-rectangle',
-          width: 'data(resultWidth)',
-          height: 'data(resultHeight)',
-          'font-size': 12,
+          // Narrower, taller boxes on phones shrink the layout so it fits at a readable zoom.
+          width: (node) => (PHONE.matches ? 0.62 : 1) * node.data('resultWidth'),
+          height: (node) => node.data('resultHeight') + (PHONE.matches ? 34 : 0),
+          'font-size': () => (PHONE.matches ? 17 : 12),
           'font-weight': 700,
           'text-wrap': 'wrap',
-          'text-max-width': 150,
+          'text-max-width': (node) => (PHONE.matches ? 0.62 * node.data('resultWidth') - 8 : 150),
           'text-valign': 'center',
           'text-halign': 'center',
         },
@@ -130,7 +132,7 @@ export function renderResultGraph(graph) {
           'control-point-step-size': 42,
           label: '',
           color: '#dbe4e0',
-          'font-size': 10,
+          'font-size': () => (PHONE.matches ? 17 : 10),
           'font-weight': 600,
           'text-background-color': '#111d1a',
           'text-background-opacity': 0.96,
@@ -213,14 +215,15 @@ export function renderResultGraph(graph) {
   });
 
   function runLayout() {
+    const padding = PHONE.matches ? 16 : 80;
     const layout = graph.cycles.length
       ? {
         name: 'circle',
         avoidOverlap: true,
-        spacingFactor: 1.08,
+        spacingFactor: PHONE.matches ? 0.95 : 1.08,
         startAngle: -Math.PI / 2,
         sweep: 2 * Math.PI,
-        padding: 80,
+        padding,
         animate: false,
       }
       : {
@@ -229,7 +232,7 @@ export function renderResultGraph(graph) {
         rankSep: 130,
         nodeSep: 55,
         edgeSep: 28,
-        padding: 45,
+        padding: PHONE.matches ? 16 : 45,
         animate: false,
       };
     graphView

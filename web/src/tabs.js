@@ -1,3 +1,5 @@
+import { centerInScroller } from './utils.js';
+
 export function initTabs(onShow) {
   const tabs = [...document.querySelectorAll('[role="tab"]')];
   const stickyStart = document.querySelector('.metrics');
@@ -11,6 +13,7 @@ export function initTabs(onShow) {
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
     }
     if (focus) target.focus();
+    centerInScroller(target.parentElement, target);
     if (location.hash !== `#${target.dataset.tab}`) history.replaceState(null, '', `#${target.dataset.tab}`);
     const top = stickyStart.offsetTop + stickyStart.offsetHeight;
     if (window.scrollY > top) window.scrollTo({ top });

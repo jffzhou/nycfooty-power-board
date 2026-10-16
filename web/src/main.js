@@ -32,6 +32,7 @@ const showTab = initTabs((name) => {
 document.addEventListener('click', (event) => {
   const link = event.target.closest('[data-team-link]');
   if (!link) return;
-  selectTeam(link.dataset.teamLink);
+  // Show the panel first so the chip row is laid out and can scroll to the team.
   showTab('teams');
+  selectTeam(link.dataset.teamLink);
 });

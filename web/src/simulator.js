@@ -1,4 +1,4 @@
-import { escapeHtml, percentage, signed } from './utils.js';
+import { PHONE, escapeHtml, percentage, signed } from './utils.js';
 
 // Mirrors forecast_final_standings in nycfooty/forecast.py; strengths are never refit.
 
@@ -192,6 +192,12 @@ export function renderSimulator(model) {
   const baselineByTeam = new Map(baseline.map((row) => [row.team, row]));
   const displayOrder = [...baseline].sort((first, second) => first.averageFinish - second.averageFinish).map((row) => row.team);
 
+  // Phones hide the points and finish columns, so each group header spans two columns instead of four.
+  const groupHeaders = [document.querySelector('#sim-real-group'), document.querySelector('#sim-whatif-group')];
+  const fitGroups = () => groupHeaders.forEach((header) => { header.colSpan = PHONE.matches ? 2 : 4; });
+  fitGroups();
+  PHONE.addEventListener('change', fitGroups);
+
   function readLocks() {
     const locks = new Map();
     fixturesContainer.querySelectorAll('.sim-fixture').forEach((card) => {
@@ -223,13 +229,13 @@ export function renderSimulator(model) {
       const before = baselineByTeam.get(team);
       return `<tr>
         <td><button type="button" class="team-link" data-team-link="${escapeHtml(team)}">${escapeHtml(team)}</button></td>
-        <td>${before.expectedPoints.toFixed(1)}</td>
-        <td>${before.averageFinish.toFixed(1)}</td>
+        <td class="mh">${before.expectedPoints.toFixed(1)}</td>
+        <td class="mh">${before.averageFinish.toFixed(1)}</td>
         <td>${percentage(before.first)}</td>
         <td>${percentage(before.topFour)}</td>
-        <td class="sim-whatif sim-group-start">${row.expectedPoints.toFixed(1)}</td>
-        <td class="sim-whatif">${row.averageFinish.toFixed(1)}</td>
-        <td class="sim-whatif">${percentage(row.first)}${shift(row.first, before.first)}</td>
+        <td class="sim-whatif sim-group-start mh">${row.expectedPoints.toFixed(1)}</td>
+        <td class="sim-whatif mh">${row.averageFinish.toFixed(1)}</td>
+        <td class="sim-whatif sim-phone-group-start">${percentage(row.first)}${shift(row.first, before.first)}</td>
         <td class="sim-whatif"><strong>${percentage(row.topFour)}</strong>${shift(row.topFour, before.topFour)}</td>
       </tr>`;
     }).join('');

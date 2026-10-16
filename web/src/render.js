@@ -1,4 +1,4 @@
-import { escapeHtml, percentage, signed } from './utils.js';
+import { centerInScroller, escapeHtml, percentage, signed } from './utils.js';
 
 function teamLink(name) {
   return `<button type="button" class="team-link" data-team-link="${escapeHtml(name)}">${escapeHtml(name)}</button>`;
@@ -67,32 +67,39 @@ function renderMatchup(data) {
   update();
 }
 
-function statusCell(status) {
-  if (!status) return '<span class="sample">Hypothetical</span>';
+function statusChips(status) {
   const chips = [];
   if (status.clinchedFirst) chips.push('<span class="status-chip good">Clinched 1st</span>');
   else if (status.clinchedTopFour) chips.push('<span class="status-chip good">Clinched top 4</span>');
   if (status.eliminatedTopFour) chips.push('<span class="status-chip bad">Eliminated</span>');
   else if (status.eliminatedFirst) chips.push('<span class="status-chip muted">Can&#039;t finish 1st</span>');
   if (!chips.length) chips.push('<span class="status-chip">Alive</span>');
-  return `${chips.join('')}<span class="sample">Max ${status.maxPoints} pts</span>`;
+  return chips.join('');
+}
+
+function statusCell(status) {
+  if (!status) return '<span class="sample">Hypothetical</span>';
+  return `${statusChips(status)}<span class="sample">Max ${status.maxPoints} pts</span>`;
 }
 
 export function renderProjection(scenario, playoffStatus = null) {
-  document.querySelector('#projection-body').innerHTML = scenario.projections.map((row) => `<tr>
+  document.querySelector('#projection-body').innerHTML = scenario.projections.map((row) => {
+    const status = playoffStatus?.[row.team];
+    return `<tr>
     <td class="rank">${String(row.rank).padStart(2, '0')}</td>
-    <td>${teamLink(row.team)}</td>
-    <td>${row.currentPoints}</td>
-    <td>${row.expectedRemainingPoints.toFixed(1)}</td>
+    <td>${teamLink(row.team)}<span class="phone-only">${status ? statusChips(status) : ''}<span class="sample">${row.currentPoints} pts now</span></span></td>
+    <td class="mh">${row.currentPoints}</td>
+    <td class="mh">${row.expectedRemainingPoints.toFixed(1)}</td>
     <td class="projected-points">${row.expectedPoints.toFixed(1)}</td>
-    <td>${row.expectedWins.toFixed(1)}-${row.expectedLosses.toFixed(1)}-${row.expectedTies.toFixed(1)}</td>
-    <td>${row.averageFinish.toFixed(1)}</td>
+    <td class="mh">${row.expectedWins.toFixed(1)}-${row.expectedLosses.toFixed(1)}-${row.expectedTies.toFixed(1)}</td>
+    <td class="mh">${row.averageFinish.toFixed(1)}</td>
     <td>${percentage(row.firstProbability)}</td>
     <td class="playoff-cell"><strong>${percentage(row.topFourProbability)}</strong><div class="playoff-bar"><span style="width:${percentage(row.topFourProbability, 1)}"></span></div></td>
-    <td>${percentage(row.finalProbability)}</td>
+    <td class="mh">${percentage(row.finalProbability)}</td>
     <td><strong>${percentage(row.championProbability)}</strong></td>
-    <td>${statusCell(playoffStatus?.[row.team])}</td>
-  </tr>`).join('');
+    <td class="mh">${statusCell(status)}</td>
+  </tr>`;
+  }).join('');
   document.querySelectorAll('.scenario-note').forEach((note) => {
     note.textContent = scenario.note;
   });
@@ -156,11 +163,11 @@ function renderScheduleGaps(gaps, matchups) {
     const [firstWin, draw, secondWin] = matchups[first][second];
     return `<tr>
       <td>${teamLink(first)}<span class="sample">power ${byTeam.get(first).power.toFixed(1)}</span>${teamLink(second)}<span class="sample">power ${byTeam.get(second).power.toFixed(1)}</span></td>
-      <td class="gap-forecast">
+      <td class="gap-forecast" data-label="Forecast if they played">
         <div class="probability-bar"><span class="away" style="width:${percentage(firstWin, 1)}"></span><span class="draw" style="width:${percentage(draw, 1)}"></span><span class="home" style="width:${percentage(secondWin, 1)}"></span></div>
         <div class="probability-labels"><span><b>${percentage(firstWin)}</b> ${escapeHtml(first)}</span><span><b>${percentage(draw)}</b> draw</span><span><b>${percentage(secondWin)}</b> ${escapeHtml(second)}</span></div>
       </td>
-      <td>${teamOdds(first)}${teamOdds(second)}</td>
+      <td data-label="Top 4: real schedule → full round robin">${teamOdds(first)}${teamOdds(second)}</td>
     </tr>`;
   }).join('');
 }
@@ -248,6 +255,7 @@ export function renderTeamView(data) {
     if (!team) return;
     picker.querySelectorAll('.team-chip').forEach((chip) => {
       chip.setAttribute('aria-pressed', String(chip.dataset.teamLink === name));
+      if (chip.dataset.teamLink === name) centerInScroller(picker, chip);
     });
     const projection = projections.get(name);
     const scheduledTeams = data.teams.filter((item) => item.remainingScheduleRank !== null).length;
@@ -371,7 +379,7 @@ function renderFixtures(data) {
 
 function renderResults(results) {
   document.querySelector('#results-body').innerHTML = results.map((result) => `<tr>
-    <td><span class="week-chip">W${result.week}</span>${result.dateLabel}</td>
+    <td><span class="week-chip">W${result.week}</span><span class="result-date">${result.dateLabel}</span></td>
     <td>${escapeHtml(result.awayTeam)}</td>
     <td class="scoreline">${result.awayScore} - ${result.homeScore}</td>
     <td>${escapeHtml(result.homeTeam)}${result.forfeit ? '<span class="forfeit">Forfeit</span>' : ''}</td>

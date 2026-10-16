@@ -85,7 +85,7 @@ h1 { max-width: 760px; margin: 0; font-size: 50px; line-height: 1.02; }
 .metric span { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
 
 .tabs { position: sticky; top: 0; z-index: 20; background: var(--field-dark); box-shadow: 0 3px 12px rgba(10, 20, 17, 0.18); }
-.tab-list { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tab-list { position: relative; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .tab-list [role="tab"] { flex-shrink: 0; min-height: 50px; padding: 0 16px; color: #b8c7c2; background: transparent; border: 0; border-bottom: 3px solid transparent; cursor: pointer; font-size: 13px; font-weight: 800; text-transform: uppercase; }
 .tab-list [role="tab"]:hover { color: #fff; }
 .tab-list [role="tab"][aria-selected="true"] { color: #fff; border-bottom-color: var(--lime); }
@@ -199,7 +199,7 @@ select { width: 100%; min-height: 44px; padding: 8px 34px 8px 11px; color: var(-
 .shift.down { color: #8e2e20; background: #fde8e3; }
 .shift.flat { color: var(--muted); background: #eef2ee; }
 
-.team-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.team-picker { position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
 .team-chip { min-height: 36px; padding: 6px 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--team-color); border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 700; }
 .team-chip:hover { border-color: var(--field); border-left-color: var(--team-color); }
 .team-chip[aria-pressed="true"] { color: #fff; background: var(--field-dark); border-color: var(--field-dark); border-left-color: var(--team-color); }
@@ -316,6 +316,9 @@ select { width: 100%; min-height: 44px; padding: 8px 34px 8px 11px; color: var(-
 .week-chip { display: inline-block; min-width: 30px; margin-right: 8px; padding: 3px 5px; color: #fff; background: var(--field); border-radius: 2px; font-size: 10px; text-align: center; }
 .forfeit { margin-left: 8px; padding: 3px 5px; color: #8e2e20; background: #fde8e3; border-radius: 2px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
 
+.result-date { white-space: nowrap; }
+.phone-only { display: none; }
+
 .method { padding: 28px 32px 32px; background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--lime); border-radius: var(--radius); }
 .method-body { max-width: 780px; }
 .method-body h3 { margin: 30px 0 6px; font-family: Georgia, "Times New Roman", serif; font-size: 21px; }
@@ -350,4 +353,94 @@ footer { padding: 24px 0 38px; color: var(--muted); border-top: 1px solid var(--
   .recap-headline, .recap-body { grid-template-columns: 1fr; }
   .recap-headline div { border-left: 0; border-top: 1px solid #2b403a; }
   .sim-results { position: static; }
+}
+
+/* Phones: compact chrome, essential table columns only, stacked cards, swipeable rows. */
+@media (max-width: 640px) {
+  .masthead { min-height: 0; }
+  .masthead .shell { padding: 26px 0 22px; }
+  .eyebrow { margin-bottom: 6px; font-size: 11px; }
+  h1 { font-size: 30px; }
+  .subtitle { margin-top: 10px; font-size: 15px; }
+  .model-switch { margin-top: 14px; }
+  .model-toggle { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .model-toggle button { padding: 6px 4px; font-size: 11px; line-height: 1.2; }
+  .model-toggle small { display: block; }
+  .model-summary { font-size: 12px; }
+  .source-link { margin-top: 12px; font-size: 13px; }
+  .metric { padding: 10px 14px; }
+  .metric strong { min-height: 0; font-size: 22px; }
+  .metric span { font-size: 10px; }
+  .tab-list [role="tab"] { min-height: 44px; padding: 0 12px; font-size: 12px; }
+
+  main { padding: 24px 0 40px; }
+  section { margin-bottom: 40px; }
+  h2 { font-size: 24px; }
+  th, td { padding: 9px 8px; }
+  td { font-size: 13px; }
+  th { white-space: normal; }
+  th[data-short] { font-size: 0; }
+  th[data-short]::after { content: attr(data-short); font-size: 11px; }
+  .sample { white-space: normal; }
+  .mh { display: none; }
+  .phone-only { display: block; margin-top: 4px; }
+  .rank { width: 30px; font-size: 15px; }
+  .power strong { font-size: 18px; }
+  .power span:last-child { display: none; }
+  .projected-points { font-size: 17px; }
+  .playoff-cell { min-width: 56px; }
+  .result-date { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+  .comparison-table .sample.wrap { display: none; }
+  .comparison-table td.numeric { font-size: 14px; }
+
+  .stack-phone thead { display: none; }
+  .stack-phone tr { display: block; padding: 12px 14px; border-top: 1px solid var(--line); }
+  .stack-phone tr:first-child { border-top: 0; }
+  .stack-phone td { display: block; padding: 0; border: 0; }
+  .stack-phone td + td { margin-top: 12px; }
+  .stack-phone td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 5px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+  .gap-forecast { min-width: 0; }
+
+  .team-picker { flex-wrap: nowrap; margin: 0 -12px 14px; padding: 0 12px 4px; overflow-x: auto; scrollbar-width: none; }
+  .team-chip { flex-shrink: 0; }
+  .team-summary-name { padding: 14px 16px; }
+  .team-summary-name h3 { font-size: 22px; }
+  .team-summary dl div { padding: 12px 14px; }
+  .team-summary dd { font-size: 20px; }
+  .team-game { padding: 12px 14px; }
+  .team-game.result { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when outcome" "opponent outcome"; column-gap: 10px; }
+  .team-game.result .team-game-when { grid-area: when; }
+  .team-game.result .team-game-opponent { grid-area: opponent; }
+  .team-game.result .team-game-outcome { grid-area: outcome; flex-direction: column; align-items: flex-end; justify-self: end; gap: 4px; }
+  .team-game-opponent { font-size: 15px; }
+
+  .chart-panel, .odds-grid .chart-panel { height: 400px; padding: 14px; }
+
+  .sim-layout { gap: 16px; }
+  .sim-results { order: -1; }
+  .sim-table { min-width: 0; table-layout: auto; }
+  .sim-table .sim-num, .sim-table .sim-num-narrow { width: auto; }
+  .sim-table th, .sim-table td { padding: 8px 5px; font-size: 12px; white-space: normal; }
+  .sim-table .sim-phone-group-start { border-left: 2px solid #c9d3cc; }
+  .sim-table .shift { display: block; width: fit-content; margin: 2px 0 0; }
+  .sim-row { grid-template-columns: minmax(0, 1fr) 46px 8px 46px minmax(0, 1fr); gap: 6px; }
+  .sim-team { font-size: 13px; }
+
+  .graph-toolbar { flex-wrap: wrap; gap: 10px; padding: 12px; }
+  .graph-tools { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .graph-key { flex-basis: 100%; flex-wrap: wrap; gap: 6px 14px; }
+  #result-graph { height: 440px; }
+  .graph-caption { padding: 10px 12px; }
+
+  .lab { padding: 16px; }
+  .lab-values b { font-size: 22px; }
+  .method { padding: 18px 16px 22px; }
+  .method-body p { font-size: 14px; }
+  .method-body .method-lead { font-size: 15px; }
+}
+
+@media (max-width: 380px) {
+  .shell { width: calc(100% - 16px); }
+  th, td { padding: 8px 5px; }
+  .rank { width: 24px; }
 }
