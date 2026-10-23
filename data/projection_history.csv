@@ -1,81 +1,91 @@
 week,team,first_pct,top_four_pct,first_pct_hindsight,top_four_pct_hindsight
-0,Rat City FC,9.93,40.65,6.28,33.69
-0,Runny Gyoks FC,9.9,40.36,14.85,52.72
-0,Pacific Penguins FC,10.2,40.28,23.61,65.88
-0,Fearless United,10.4,39.94,0.44,5.38
-0,The Other Secret Team,10.42,40.07,10.96,46.17
-0,Say My Neymar,9.67,40.05,5.55,31.54
-0,HEYTEA FC,10.04,39.69,3.84,24.26
-0,Off in the shower,9.59,39.9,12.1,49.06
-0,FA Rat United FC,10.09,39.49,8.64,39.52
-0,Gowanus Canal Shrimps,9.76,39.57,13.73,51.78
-1,Pacific Penguins FC,39.74,87.84,37.72,79.27
-1,Rat City FC,28.31,81.85,12.8,51.61
-1,HEYTEA FC,13.38,66.42,7.49,39.6
-1,Fearless United,6.54,45.83,1.31,12.51
-1,Say My Neymar,5.2,41.58,5.74,32.73
-1,FA Rat United FC,3.99,30.71,10.04,42.45
-1,The Other Secret Team,1.56,20.8,4.32,28.05
-1,Gowanus Canal Shrimps,1.01,16.11,7.16,38.21
-1,Runny Gyoks FC,0.2,5.64,7.13,37.75
-1,Off in the shower,0.07,3.21,6.3,37.82
-2,Pacific Penguins FC,65.64,99.1,49.54,88.58
-2,Rat City FC,30.52,96.84,17.76,67.41
-2,Off in the shower,1.03,45.92,6.36,44.38
-2,HEYTEA FC,0.74,43.77,2.22,26.94
-2,Runny Gyoks FC,0.71,35.5,8.12,48.08
-2,FA Rat United FC,0.75,34.25,3.5,27.85
-2,The Other Secret Team,0.36,20.2,3.66,28.06
-2,Gowanus Canal Shrimps,0.17,12.28,6.22,37.72
-2,Fearless United,0.04,7.03,0.39,7.7
-2,Say My Neymar,0.03,5.11,2.23,23.29
-3,Rat City FC,50.1,97.76,15.4,67.8
-3,Pacific Penguins FC,43.3,97.97,60.52,94.82
-3,FA Rat United FC,3.23,62.37,4.1,38.9
-3,Runny Gyoks FC,2.16,52.76,6.78,48.33
-3,Off in the shower,0.49,29.54,7.75,59.92
-3,Say My Neymar,0.47,24.9,2.38,29.96
-3,The Other Secret Team,0.22,20.51,0.78,18.26
-3,HEYTEA FC,0.02,11.53,0.34,14.24
-3,Gowanus Canal Shrimps,0.02,2.05,1.83,24.35
-3,Fearless United,0.0,0.61,0.12,3.42
-4,Pacific Penguins FC,46.42,91.28,51.01,91.29
-4,Rat City FC,19.86,71.48,9.39,48.64
-4,The Other Secret Team,11.7,63.45,3.28,30.64
-4,Runny Gyoks FC,10.57,55.09,16.63,62.99
-4,Say My Neymar,6.2,44.81,6.67,44.27
-4,Gowanus Canal Shrimps,2.14,25.18,4.86,38.2
-4,Off in the shower,1.21,19.95,4.55,44.29
-4,FA Rat United FC,1.42,17.88,2.48,22.34
-4,HEYTEA FC,0.42,9.12,0.98,14.3
-4,Fearless United,0.06,1.76,0.15,3.03
-5,Pacific Penguins FC,55.2,93.58,56.46,94.25
-5,Runny Gyoks FC,16.13,64.46,21.42,73.88
-5,The Other Secret Team,9.84,54.58,3.02,29.89
-5,Off in the shower,4.09,49.92,5.2,59.89
-5,Gowanus Canal Shrimps,6.38,47.96,6.77,51.32
-5,Rat City FC,4.0,35.55,2.65,31.28
-5,Say My Neymar,2.17,28.76,1.7,29.16
-5,FA Rat United FC,2.08,16.94,2.73,22.26
-5,HEYTEA FC,0.05,4.67,0.03,6.48
-5,Fearless United,0.06,3.58,0.02,1.6
-6,Pacific Penguins FC,62.05,94.86,60.22,94.74
-6,Runny Gyoks FC,18.41,71.85,20.89,75.8
-6,Say My Neymar,5.03,52.64,3.7,47.1
-6,Off in the shower,4.72,51.1,6.55,60.79
-6,Gowanus Canal Shrimps,4.44,52.9,4.02,52.6
-6,FA Rat United FC,3.93,28.52,3.64,28.46
-6,The Other Secret Team,1.01,18.93,0.69,13.84
-6,HEYTEA FC,0.12,14.91,0.1,13.12
-6,Rat City FC,0.29,13.56,0.2,13.04
-6,Fearless United,0.0,0.74,0.0,0.53
-7,Pacific Penguins FC,66.23,99.92,66.23,99.92
-7,Runny Gyoks FC,27.12,92.35,27.12,92.35
-7,Off in the shower,4.7,84.25,4.7,84.25
-7,Gowanus Canal Shrimps,0.0,35.46,0.0,35.46
-7,Say My Neymar,0.0,31.25,0.0,31.25
-7,FA Rat United FC,1.95,25.68,1.95,25.68
-7,HEYTEA FC,0.0,16.53,0.0,16.53
-7,Rat City FC,0.0,7.08,0.0,7.08
-7,The Other Secret Team,0.0,6.75,0.0,6.75
-7,Fearless United,0.0,0.72,0.0,0.72
+0,Rat City FC,9.93,40.65,6.41,34.4
+0,Runny Gyoks FC,9.9,40.36,21.73,63.74
+0,Pacific Penguins FC,10.2,40.28,21.43,63.51
+0,Fearless United,10.4,39.94,1.65,14.24
+0,The Other Secret Team,10.42,40.07,17.5,58.62
+0,Say My Neymar,9.67,40.05,5.17,30.56
+0,HEYTEA FC,10.04,39.69,3.89,24.4
+0,Off in the shower,9.59,39.9,10.66,46.37
+0,FA Rat United FC,10.09,39.49,5.86,31.43
+0,Gowanus Canal Shrimps,9.76,39.57,5.68,32.73
+1,Pacific Penguins FC,39.74,87.84,35.29,76.96
+1,Rat City FC,28.31,81.85,13.66,52.4
+1,HEYTEA FC,13.38,66.42,6.86,36.7
+1,Fearless United,6.54,45.83,4.38,27.22
+1,Say My Neymar,5.2,41.58,5.54,31.29
+1,FA Rat United FC,3.99,30.71,6.93,33.14
+1,The Other Secret Team,1.56,20.8,7.77,39.51
+1,Gowanus Canal Shrimps,1.01,16.11,3.21,21.48
+1,Runny Gyoks FC,0.2,5.64,10.79,47.3
+1,Off in the shower,0.07,3.21,5.58,34.0
+2,Pacific Penguins FC,65.64,99.1,46.26,87.2
+2,Rat City FC,30.52,96.84,18.24,66.99
+2,Off in the shower,1.03,45.92,6.13,42.8
+2,HEYTEA FC,0.74,43.77,2.04,23.68
+2,Runny Gyoks FC,0.71,35.5,12.1,58.25
+2,FA Rat United FC,0.75,34.25,2.31,20.41
+2,The Other Secret Team,0.36,20.2,6.66,38.77
+2,Gowanus Canal Shrimps,0.17,12.28,2.56,21.46
+2,Fearless United,0.04,7.03,1.6,17.91
+2,Say My Neymar,0.03,5.11,2.1,22.53
+3,Rat City FC,50.1,97.76,15.43,67.87
+3,Pacific Penguins FC,43.3,97.97,59.86,94.71
+3,FA Rat United FC,3.23,62.37,2.78,30.82
+3,Runny Gyoks FC,2.16,52.76,9.95,58.5
+3,Off in the shower,0.49,29.54,6.66,56.44
+3,Say My Neymar,0.47,24.9,2.54,31.48
+3,The Other Secret Team,0.22,20.51,1.47,26.62
+3,HEYTEA FC,0.02,11.53,0.27,11.92
+3,Gowanus Canal Shrimps,0.02,2.05,0.67,12.72
+3,Fearless United,0.0,0.61,0.37,8.93
+4,Pacific Penguins FC,46.42,91.28,46.19,89.73
+4,Rat City FC,19.86,71.48,9.64,50.3
+4,The Other Secret Team,11.7,63.45,5.34,39.94
+4,Runny Gyoks FC,10.57,55.09,22.88,72.12
+4,Say My Neymar,6.2,44.81,6.87,45.94
+4,Gowanus Canal Shrimps,2.14,25.18,2.14,23.04
+4,Off in the shower,1.21,19.95,4.13,41.63
+4,FA Rat United FC,1.42,17.88,1.57,16.75
+4,HEYTEA FC,0.42,9.12,0.73,12.04
+4,Fearless United,0.06,1.76,0.51,8.5
+5,Pacific Penguins FC,55.2,93.58,54.61,95.05
+5,Runny Gyoks FC,16.13,64.46,27.8,81.71
+5,The Other Secret Team,9.84,54.58,4.64,39.97
+5,Off in the shower,4.09,49.92,4.45,58.18
+5,Gowanus Canal Shrimps,6.38,47.96,2.95,36.01
+5,Rat City FC,4.0,35.55,2.49,33.51
+5,Say My Neymar,2.17,28.76,1.35,28.26
+5,FA Rat United FC,2.08,16.94,1.65,17.14
+5,HEYTEA FC,0.05,4.67,0.02,5.55
+5,Fearless United,0.06,3.58,0.04,4.63
+6,Pacific Penguins FC,62.05,94.86,59.71,95.53
+6,Runny Gyoks FC,18.41,71.85,24.92,81.38
+6,Say My Neymar,5.03,52.64,3.24,47.03
+6,Off in the shower,4.72,51.1,5.8,59.8
+6,Gowanus Canal Shrimps,4.44,52.9,2.19,40.44
+6,FA Rat United FC,3.93,28.52,2.87,25.98
+6,The Other Secret Team,1.01,18.93,0.99,20.48
+6,HEYTEA FC,0.12,14.91,0.08,12.85
+6,Rat City FC,0.29,13.56,0.2,15.09
+6,Fearless United,0.0,0.74,0.0,1.41
+7,Pacific Penguins FC,66.23,99.92,62.62,99.96
+7,Runny Gyoks FC,27.12,92.35,32.47,96.28
+7,Off in the shower,4.7,84.25,3.57,84.48
+7,Gowanus Canal Shrimps,0.0,35.46,0.0,26.68
+7,Say My Neymar,0.0,31.25,0.0,32.72
+7,FA Rat United FC,1.95,25.68,1.34,21.29
+7,HEYTEA FC,0.0,16.53,0.0,16.77
+7,Rat City FC,0.0,7.08,0.0,8.45
+7,The Other Secret Team,0.0,6.75,0.0,11.25
+7,Fearless United,0.0,0.72,0.0,2.11
+8,Runny Gyoks FC,70.55,100.0,70.55,100.0
+8,Pacific Penguins FC,27.0,100.0,27.0,100.0
+8,Off in the shower,2.45,98.46,2.45,98.46
+8,Say My Neymar,0.0,36.05,0.0,36.05
+8,The Other Secret Team,0.0,19.54,0.0,19.54
+8,HEYTEA FC,0.0,21.29,0.0,21.29
+8,FA Rat United FC,0.0,10.07,0.0,10.07
+8,Gowanus Canal Shrimps,0.0,3.48,0.0,3.48
+8,Rat City FC,0.0,5.68,0.0,5.68
+8,Fearless United,0.0,5.43,0.0,5.43
