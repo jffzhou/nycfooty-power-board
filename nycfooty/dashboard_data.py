@@ -342,6 +342,36 @@ def build_dashboard_data(
         )
         team_schedules[team] = entries
 
+    def points(team: str) -> int:
+        return 3 * ratings[team].wins + ratings[team].ties
+
+    official_order = [row["Team"] for row in standings if row.get("Team") in ratings]
+    table_order = official_order + sorted(
+        (team for team in team_names if team not in official_order),
+        key=lambda team: (-points(team), -ratings[team].goal_difference, team),
+    )
+    league_table = [
+        {
+            "position": position,
+            "team": team,
+            "color": colors[team],
+            "played": ratings[team].games,
+            "wins": ratings[team].wins,
+            "losses": ratings[team].losses,
+            "draws": ratings[team].ties,
+            "goalsFor": ratings[team].goals_for,
+            "goalsAgainst": ratings[team].goals_against,
+            "goalDifference": ratings[team].goal_difference,
+            "points": points(team),
+            "form": [
+                {key: entry[key] for key in ("week", "opponent", "teamScore", "opponentScore", "outcome", "forfeit")}
+                for entry in team_schedules[team]
+                if entry["kind"] == "result"
+            ][-5:],
+        }
+        for position, team in enumerate(table_order, start=1)
+    ]
+
     component_ids = {
         component: f"component-{index}"
         for index, component in enumerate(graph.components)
@@ -595,6 +625,7 @@ def build_dashboard_data(
             },
         },
         "teams": team_rows,
+        "table": league_table,
         "ratingHistory": {
             "labels": ["Start" if week == 0 else f"W{week}" for week in weeks],
             "series": [
@@ -610,8 +641,8 @@ def build_dashboard_data(
             "schedule": {
                 "label": "Actual schedule",
                 "note": (
-                    f"Simulates the {len(regular_season)} scheduled regular-season "
-                    f"fixtures; {len(pairings)} pairings never meet."
+                    f"{len(regular_season)} scheduled games; "
+                    f"{len(pairings)} pairings never meet."
                 ),
                 "projections": _projection_rows(season_forecast),
                 "history": _projection_history(
@@ -624,8 +655,8 @@ def build_dashboard_data(
             "roundRobin": {
                 "label": "Full round robin",
                 "note": (
-                    f"Adds {len(pairings)} hypothetical fixtures so every team meets "
-                    f"all {len(ranked_teams) - 1} opponents once."
+                    f"Adds the {len(pairings)} missing pairings so every team plays "
+                    f"all {len(ranked_teams) - 1} others."
                 ),
                 "projections": _projection_rows(round_robin_forecast),
                 "history": _projection_history(
@@ -654,9 +685,15 @@ def build_dashboard_data(
                     "losses": ratings[team].losses,
                     "ties": ratings[team].ties,
                     "goalDifference": ratings[team].goal_difference,
+                    "goalsFor": ratings[team].goals_for,
                     "goalsAgainst": ratings[team].goals_against,
                 }
                 for team in ranked_teams
+            ],
+            "results": [
+                [game.away_team, game.home_team, int(game.away_score), int(game.home_score)]
+                for game in regular_season
+                if game.completed
             ],
             "fixtures": [
                 {
@@ -694,7 +731,7 @@ def build_dashboard_data(
             "flow": {
                 "available": flow_available,
                 "unavailableReason": (
-                    "Dominance flow is not identifiable inside a competitive cycle."
+                    "Off while results form a cycle."
                     if not flow_available
                     else None
                 ),

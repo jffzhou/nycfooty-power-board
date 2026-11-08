@@ -56,7 +56,9 @@ Open `dashboard.html` directly in a browser. At phone widths (640px and below)
 the layout hides secondary table columns and stacks the pairing table into
 cards. Each refresh writes:
 
-- `dashboard.html`: tabbed dashboard. Rankings (power table, rating paths),
+- `dashboard.html`: tabbed dashboard. Rankings (official table in LeagueApps
+  order with PL/W/L/D/goals/GD/PTS and last-five form, power table with each
+  team's table position, rating paths),
   Teams (each team's results with margin vs expectation, upcoming forecasts,
   schedule strength so far and remaining, consistency, and a translucent "ghost"
   forecast for the opponent it never plays, with opponent power, then
@@ -64,7 +66,8 @@ cards. Each refresh writes:
   that never meet with a hypothetical forecast and their top-four odds impact),
   Standings race (projected standings and weekly playoff odds with an
   actual-schedule / full-round-robin toggle), Simulator (enter or pick
-  results for upcoming games and see first-place and top-four odds move;
+  results for upcoming games and see each team's W/L/D and goals, first-place
+  and top-four odds move;
   strengths stay at the latest real ratings and are never refit on entered
   results), Matches (weekly recap scored against point-in-time forecasts,
   fixtures, matchup lab,
@@ -130,16 +133,18 @@ they do not yet integrate rating-parameter uncertainty.
 
 Projected standings run 25,000 reproducible simulations with current strengths
 held fixed. Official points and goal difference are carried forward, then each
-remaining result and margin is sampled. Teams are ordered by points, goal
-difference, and fewer goals against within each simulation; the displayed table
-is ordered by average finishing position.
+remaining result and margin is sampled. Teams are ordered by the league's
+tiebreakers within each simulation: points, goal difference, goals scored,
+then points, goal difference and goals scored in head-to-head games among the
+tied teams (one mini-table for the whole tied group), then a coin flip. The
+displayed table is ordered by average finishing position.
 
 The top four make the playoffs: 1st plays 4th and 2nd plays 3rd, then the
 final, at the shared venue. A drawn knockout game is settled 50/50. For each
 simulated final table the bracket odds are computed exactly from the four
 seeds, so they add no random draws and leave first-place and top-four odds
 unchanged. Clinched and eliminated flags count points only, with ties against
-the team because goal-difference tiebreakers are unknown. They are exact over
+the team because goal tiebreakers can't be known in advance. They are exact over
 every win/draw/loss outcome once at most 10 games remain, and conservative
 before that.
 
@@ -261,8 +266,8 @@ Findings (log loss, lower is better; full tables in
   long way.
 - Rating intervals assume 2-goal margin noise, below the forecast noise, so
   the displayed 80% ranges are likely too narrow.
-- Simulated goal differences use the scaled forecast noise, so goal-difference
-  tiebreaks in simulations are noisier than real ones.
+- Simulated goals use the scaled forecast noise, so goal-based tiebreaks in
+  simulations are noisier than real ones.
 - The default model has one strength dimension. Dixon-Coles separates attack
   and defence but forecast worse in the backtest.
 - Only explicit forfeits are excluded from strength. Inspect game notes when a

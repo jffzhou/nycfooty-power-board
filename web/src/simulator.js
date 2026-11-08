@@ -71,6 +71,39 @@ function sampleScore(table, value) {
   return table[low];
 }
 
+// Mirrors rank_table in nycfooty/forecast.py; the incoming order is the coin flip.
+function rankTable(order, points, goalDifference, goalsFor, results) {
+  const level = (first, second) => (
+    points[second] - points[first]
+    || goalDifference[second] - goalDifference[first]
+    || goalsFor[second] - goalsFor[first]
+  );
+  order.sort(level);
+  for (let start = 0; start < order.length;) {
+    let end = start + 1;
+    while (end < order.length && level(order[start], order[end]) === 0) end += 1;
+    if (end - start > 1) {
+      const group = order.slice(start, end);
+      const record = new Map(group.map((team) => [team, [0, 0, 0]]));
+      for (const [away, home, awayGoals, homeGoals] of results) {
+        if (!record.has(away) || !record.has(home)) continue;
+        for (const [team, scored, conceded] of [[away, awayGoals, homeGoals], [home, homeGoals, awayGoals]]) {
+          const row = record.get(team);
+          row[0] += scored > conceded ? 3 : scored === conceded ? 1 : 0;
+          row[1] += scored - conceded;
+          row[2] += scored;
+        }
+      }
+      group.sort((first, second) => {
+        const [a, b] = [record.get(first), record.get(second)];
+        return b[0] - a[0] || b[1] - a[1] || b[2] - a[2];
+      });
+      order.splice(start, group.length, ...group);
+    }
+    start = end;
+  }
+}
+
 export function simulateSeason(model, locks) {
   const count = model.teams.length;
   const index = new Map(model.teams.map((team, position) => [team.team, position]));
@@ -90,7 +123,10 @@ export function simulateSeason(model, locks) {
   };
   const points = new Float64Array(count);
   const goalDifference = new Float64Array(count);
-  const goalsAgainst = new Float64Array(count);
+  const goalsFor = new Float64Array(count);
+  const played = model.results.map(([away, home, awayGoals, homeGoals]) => [index.get(away), index.get(home), awayGoals, homeGoals]);
+  const simulated = fixtures.map((fixture) => [fixture.away, fixture.home, 0, 0]);
+  const results = [...played, ...simulated];
   const order = Array.from({ length: count }, (_, position) => position);
   const random = seededRandom(model.seed);
 
@@ -98,9 +134,9 @@ export function simulateSeason(model, locks) {
     model.teams.forEach((team, position) => {
       points[position] = team.points;
       goalDifference[position] = team.goalDifference;
-      goalsAgainst[position] = team.goalsAgainst;
+      goalsFor[position] = team.goalsFor;
     });
-    for (const fixture of fixtures) {
+    fixtures.forEach((fixture, fixtureIndex) => {
       // Draw for every fixture, locked or not, so the baseline and scenario share random numbers.
       let awayGoals;
       let homeGoals;
@@ -123,18 +159,16 @@ export function simulateSeason(model, locks) {
       }
       goalDifference[fixture.away] += awayGoals - homeGoals;
       goalDifference[fixture.home] += homeGoals - awayGoals;
-      goalsAgainst[fixture.away] += homeGoals;
-      goalsAgainst[fixture.home] += awayGoals;
-    }
+      goalsFor[fixture.away] += awayGoals;
+      goalsFor[fixture.home] += homeGoals;
+      simulated[fixtureIndex][2] = awayGoals;
+      simulated[fixtureIndex][3] = homeGoals;
+    });
     for (let position = count - 1; position > 0; position -= 1) {
       const swap = Math.floor(random() * (position + 1));
       [order[position], order[swap]] = [order[swap], order[position]];
     }
-    order.sort((first, second) => (
-      points[second] - points[first]
-      || goalDifference[second] - goalDifference[first]
-      || goalsAgainst[first] - goalsAgainst[second]
-    ));
+    rankTable(order, points, goalDifference, goalsFor, results);
     order.forEach((team, rank) => {
       totals.points[team] += points[team];
       totals.finish[team] += rank + 1;
@@ -192,9 +226,9 @@ export function renderSimulator(model) {
   const baselineByTeam = new Map(baseline.map((row) => [row.team, row]));
   const displayOrder = [...baseline].sort((first, second) => first.averageFinish - second.averageFinish).map((row) => row.team);
 
-  // Phones hide the points and finish columns, so each group header spans two columns instead of four.
-  const groupHeaders = [document.querySelector('#sim-real-group'), document.querySelector('#sim-whatif-group')];
-  const fitGroups = () => groupHeaders.forEach((header) => { header.colSpan = PHONE.matches ? 2 : 4; });
+  // Phones hide the what-if points and finish columns, so that group spans two columns instead of four.
+  const whatIfGroup = document.querySelector('#sim-whatif-group');
+  const fitGroups = () => { whatIfGroup.colSpan = PHONE.matches ? 2 : 4; };
   fitGroups();
   PHONE.addEventListener('change', fitGroups);
 
@@ -216,22 +250,49 @@ export function renderSimulator(model) {
     return locks;
   }
 
+  function records(locks) {
+    const byTeam = new Map(model.teams.map((team) => [team.team, {
+      wins: team.wins,
+      losses: team.losses,
+      draws: team.ties,
+      goalsFor: team.goalsFor,
+      goalsAgainst: team.goalsAgainst,
+    }]));
+    for (const fixture of model.fixtures) {
+      const lock = locks.get(fixture.gameId);
+      if (!lock) continue;
+      for (const [team, scored, conceded] of [[fixture.awayTeam, lock.away, lock.home], [fixture.homeTeam, lock.home, lock.away]]) {
+        const record = byTeam.get(team);
+        record.goalsFor += scored;
+        record.goalsAgainst += conceded;
+        if (scored > conceded) record.wins += 1;
+        else if (scored < conceded) record.losses += 1;
+        else record.draws += 1;
+      }
+    }
+    return byTeam;
+  }
+
   function update() {
     const locks = readLocks();
     const scenario = locks.size ? simulateSeason(model, locks) : baseline;
     const byTeam = new Map(scenario.map((row) => [row.team, row]));
+    const recordByTeam = records(locks);
     const total = model.fixtures.length;
-    document.querySelector('#sim-real-head').textContent = `All ${total} games simulated`;
+    document.querySelector('#sim-real-head').textContent = `${total} simulated`;
     document.querySelector('#sim-whatif-head').textContent =
-      `${locks.size} set by you, ${total - locks.size} simulated`;
+      `${locks.size} set, ${total - locks.size} simulated`;
     body.innerHTML = displayOrder.map((team) => {
       const row = byTeam.get(team);
       const before = baselineByTeam.get(team);
+      const record = recordByTeam.get(team);
       return `<tr>
-        <td><button type="button" class="team-link" data-team-link="${escapeHtml(team)}">${escapeHtml(team)}</button></td>
-        <td class="mh">${before.expectedPoints.toFixed(1)}</td>
-        <td class="mh">${before.averageFinish.toFixed(1)}</td>
-        <td>${percentage(before.first)}</td>
+        <td><button type="button" class="team-link" data-team-link="${escapeHtml(team)}">${escapeHtml(team)}</button><span class="phone-only sample">${record.wins}-${record.losses}-${record.draws} &middot; ${record.goalsFor}-${record.goalsAgainst}</span></td>
+        <td class="mh">${record.wins}</td>
+        <td class="mh">${record.losses}</td>
+        <td class="mh">${record.draws}</td>
+        <td class="mh">${record.goalsFor}-${record.goalsAgainst}</td>
+        <td class="sim-group-start">${percentage(before.first)}</td>
         <td>${percentage(before.topFour)}</td>
         <td class="sim-whatif sim-group-start mh">${row.expectedPoints.toFixed(1)}</td>
         <td class="sim-whatif mh">${row.averageFinish.toFixed(1)}</td>
@@ -239,7 +300,7 @@ export function renderSimulator(model) {
         <td class="sim-whatif"><strong>${percentage(row.topFour)}</strong>${shift(row.topFour, before.topFour)}</td>
       </tr>`;
     }).join('');
-    status.textContent = `Each forecast runs ${model.simulations.toLocaleString()} simulated seasons on the latest real strengths. Tags show the what-if change in percentage points.`;
+    status.textContent = `${model.simulations.toLocaleString()} simulated seasons. Tags show the change in percentage points.`;
   }
 
   let pending;

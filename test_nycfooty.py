@@ -419,6 +419,45 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual((rows["draw"]["verdict"], rows["upset"]["verdict"]), ("draw", "upset"))
         self.assertEqual(recap["biggestUpset"], "upset")
 
+    def test_table_with_six_results(self) -> None:
+        """Form is the last five official results, oldest first, told from the team's side."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        scores = [(1, 0), (0, 2), (3, 3), (2, 1), (0, 1), (4, 0)]
+        games = [
+            replace(
+                fixture,
+                game_id=str(week),
+                week=week,
+                played_at=fixture.played_at + timedelta(days=7 * week),
+                away_team="A" if week % 2 else "B",
+                home_team="B" if week % 2 else "A",
+                away_score=away if week % 2 else home,
+                home_score=home if week % 2 else away,
+            )
+            for week, (away, home) in enumerate(scores, start=1)
+        ]
+
+        table = build_dashboard_data(games, [], [], generated_at=datetime(2026, 1, 1), simulations=1)["table"]
+
+        row = next(row for row in table if row["team"] == "A")
+        self.assertEqual(
+            [(game["outcome"], game["teamScore"], game["opponentScore"]) for game in row["form"]],
+            [("L", 0, 2), ("D", 3, 3), ("W", 2, 1), ("L", 0, 1), ("W", 4, 0)],
+        )
+
+    def test_table_with_leagueapps_tiebreak(self) -> None:
+        """The table keeps LeagueApps' published order rather than re-sorting it."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        games = [
+            replace(fixture, game_id="1", away_team="A", home_team="B", away_score=1, home_score=0),
+            replace(fixture, game_id="2", away_team="C", home_team="D", away_score=1, home_score=0),
+        ]
+        standings = [{"Team": team} for team in ("C", "A", "D", "B")]
+
+        table = build_dashboard_data(games, standings, [], generated_at=datetime(2026, 1, 1), simulations=1)["table"]
+
+        self.assertEqual([(row["position"], row["team"]) for row in table], [(1, "C"), (2, "A"), (3, "D"), (4, "B")])
+
 
 class SeasonForecastTests(unittest.TestCase):
     def test_seeded_forecast_is_reproducible(self) -> None:
@@ -429,6 +468,27 @@ class SeasonForecastTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertAlmostEqual(sum(team.first_probability for team in first), 1.0)
+
+    @staticmethod
+    def _finished_season(results: list[tuple[str, str, int, int]]) -> dict[str, object]:
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        games = [
+            replace(fixture, game_id=str(index), away_team=away, home_team=home, away_score=away_score, home_score=home_score)
+            for index, (away, home, away_score, home_score) in enumerate(results)
+        ]
+        return {item.team: item for item in forecast_final_standings(games, simulations=200, seed=7)}
+
+    def test_finished_season_level_on_points_and_goal_difference(self) -> None:
+        """League rule 2: more goals scored wins the tie, even though it means more conceded."""
+        table = self._finished_season([("A", "C", 3, 2), ("B", "D", 1, 0)])
+
+        self.assertEqual((table["A"].first_probability, table["B"].first_probability), (1.0, 0.0))
+
+    def test_finished_season_level_on_goals_scored(self) -> None:
+        """League rules 3-5: head-to-head between the tied teams decides before any coin flip."""
+        table = self._finished_season([("A", "B", 2, 1), ("B", "C", 2, 1), ("D", "A", 2, 1)])
+
+        self.assertEqual((table["A"].average_finish, table["B"].average_finish), (2.0, 3.0))
 
     def test_later_week_score_changes(self) -> None:
         """A weekly snapshot must only use results known by that week."""

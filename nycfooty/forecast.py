@@ -3,7 +3,7 @@ from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from dataclasses import replace
 from datetime import timedelta
-from itertools import combinations, product
+from itertools import combinations, groupby, product
 
 from nycfooty.constants import (
     DEFAULT_SIMULATIONS,
@@ -96,7 +96,7 @@ def playoff_status(
     spots: int,
     exact_limit: int = 10,
 ) -> dict[str, dict[str, object]]:
-    """Points-only clinch/elimination; ties count against the team because tiebreakers are unknown.
+    """Points-only clinch/elimination; ties count against the team because goal tiebreakers can't be known in advance.
 
     Exact over every win/draw/loss outcome when at most `exact_limit` games remain,
     otherwise a conservative bound that ignores rivals having to play each other.
@@ -167,6 +167,36 @@ def average_losing_score(games: Iterable[Game]) -> float:
     )
 
 
+def rank_table(
+    order: list[int],
+    points: list[int],
+    goal_difference: list[int],
+    goals_for: list[int],
+    results: Iterable[tuple[int, int, int, int]],
+) -> list[int]:
+    """League tiebreakers: points, goal difference, goals scored, then head-to-head points,
+    goal difference and goals scored among the tied teams. The incoming order is the coin flip.
+    """
+    def key(team: int) -> tuple[int, int, int]:
+        return points[team], goal_difference[team], goals_for[team]
+
+    ranked = []
+    for _, tied in groupby(sorted(order, key=key, reverse=True), key=key):
+        group = list(tied)
+        if len(group) > 1:
+            head_to_head = {team: [0, 0, 0] for team in group}
+            for away, home, away_goals, home_goals in results:
+                if away in head_to_head and home in head_to_head:
+                    for team, scored, conceded in ((away, away_goals, home_goals), (home, home_goals, away_goals)):
+                        record = head_to_head[team]
+                        record[0] += 3 if scored > conceded else 1 if scored == conceded else 0
+                        record[1] += scored - conceded
+                        record[2] += scored
+            group.sort(key=lambda team: head_to_head[team], reverse=True)
+        ranked.extend(group)
+    return ranked
+
+
 def forecast_final_standings(
     games: Iterable[Game],
     *,
@@ -199,7 +229,12 @@ def forecast_final_standings(
     base_losses = [ratings[team].losses for team in teams]
     base_ties = [ratings[team].ties for team in teams]
     base_goal_difference = [ratings[team].goal_difference for team in teams]
-    base_goals_against = [ratings[team].goals_against for team in teams]
+    base_goals_for = [ratings[team].goals_for for team in teams]
+    played = [
+        (team_index[game.away_team], team_index[game.home_team], int(game.away_score), int(game.home_score))
+        for game in _regular_season(all_games)
+        if game.completed
+    ]
     knockout = [
         [fitted.knockout(first, second) if first != second else 0.5 for second in teams]
         for first in teams
@@ -223,9 +258,11 @@ def forecast_final_standings(
         losses = base_losses.copy()
         ties = base_ties.copy()
         goal_difference = base_goal_difference.copy()
-        goals_against = base_goals_against.copy()
+        goals_for = base_goals_for.copy()
+        results = played.copy()
         for away, home, sample in fixtures:
             away_goals, home_goals = sample(random_generator)
+            results.append((away, home, away_goals, home_goals))
             if away_goals > home_goals:
                 wins[away] += 1
                 losses[home] += 1
@@ -241,19 +278,12 @@ def forecast_final_standings(
                 points[home] += 1
             goal_difference[away] += away_goals - home_goals
             goal_difference[home] += home_goals - away_goals
-            goals_against[away] += home_goals
-            goals_against[home] += away_goals
+            goals_for[away] += away_goals
+            goals_for[home] += home_goals
 
         order = list(range(len(teams)))
         random_generator.shuffle(order)
-        order.sort(
-            key=lambda index: (
-                points[index],
-                goal_difference[index],
-                -goals_against[index],
-            ),
-            reverse=True,
-        )
+        order = rank_table(order, points, goal_difference, goals_for, results)
         for position, index in enumerate(order, start=1):
             totals["points"][index] += points[index]
             totals["wins"][index] += wins[index]

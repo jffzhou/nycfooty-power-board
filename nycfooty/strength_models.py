@@ -509,32 +509,25 @@ class ModelChoice:
 MODEL_CHOICES = {
     "margin": ModelChoice(
         "Goal margin",
-        "Rates teams by goal margin, adjusted for opponent strength.",
-        "Ratings are fitted so that rating differences reproduce observed goal margins, each capped at "
-        "4 goals. Results enter only through the margin, so a draw is a margin of zero. This is the "
-        "default model because neither alternative forecast past leagues measurably better.",
+        "Rates teams by goal margin, adjusted for the opponent.",
+        "Rating differences are fitted to goal margins, capped at 4. It is the default because "
+        "neither alternative forecast past leagues better.",
         ModelParameters(),
     ),
     # Challenger settings selected 2026-10-16 by backtest_models.py on the tuning leagues.
     "results": ModelChoice(
         "Results + margin",
-        "Rates teams by win, draw and loss results and, with less weight, by goal margin, adjusted "
-        "for opponent strength.",
-        "The fit weights the likelihood of each observed result at 0.75 and the goal margin, capped "
-        "at 2, at 0.25. A 1-0 win therefore counts nearly as much as a 5-0 win, and a single "
-        "lopsided result has limited influence. On past leagues its forecasts were as accurate as "
-        "the goal-margin model's.",
+        "Rates teams mostly by wins, draws and losses, partly by goal margin.",
+        "Results carry 0.75 of the weight and margin (capped at 2) 0.25, so a 1-0 win counts "
+        "nearly as much as 5-0. As accurate as goal margin on past leagues.",
         ModelParameters(ridge=0.02, margin_cap=2, sigma_scale=1.4, result_weight=0.75),
     ),
     "dixon-coles": ModelChoice(
         "Dixon-Coles goals",
-        "Estimates separate attack and defence ratings from goals scored and conceded, weighting "
-        "recent matches more heavily.",
-        "A team's expected goals in a match depend on its attack rating and the opponent's defence "
-        "rating. Goals are modelled as Poisson counts with the Dixon-Coles adjustment for low "
-        "scores. A match loses half its weight every 28 days, and goals above four per team in a "
-        "match are not counted. The model is widely used for professional football but was the "
-        "least accurate of the three on past leagues.",
+        "Separate attack and defence ratings from goals, with recent games weighted more.",
+        "Goals are Poisson with the Dixon-Coles low-score adjustment. A match's weight halves "
+        "every 28 days, and goals past 4 per side are ignored. Common in professional football, "
+        "but the least accurate of the three on past leagues.",
         DixonColesParameters(),
     ),
 }

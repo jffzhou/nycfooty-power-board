@@ -115,6 +115,21 @@ td { padding: 13px 14px; border-top: 1px solid var(--line); vertical-align: midd
 .rating-bar { width: 100%; height: 9px; overflow: hidden; background: #e6ebe7; border-radius: 2px; }
 .rating-bar span { display: block; height: 100%; border-radius: 2px; }
 
+.league-table th, .league-table td { padding: 10px 12px; }
+.league-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.league-table .pos { width: 44px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.league-table tr.playoff .pos { color: var(--ink); font-weight: 700; box-shadow: inset 4px 0 0 var(--field); }
+.league-table tr.cut td { border-top: 2px dashed #b6c2bc; }
+.league-table .pts { font-size: 16px; font-weight: 800; }
+.league-table .form-head { padding-left: 18px; }
+.league-table td:last-child { padding-left: 18px; }
+.form { display: flex; gap: 4px; }
+.form-pill { display: inline-grid; place-items: center; min-width: 36px; height: 22px; padding: 0 5px; color: #fff; border-radius: 3px; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; cursor: default; }
+.form-pill.win { background: var(--field); }
+.form-pill.loss { background: var(--coral); }
+.form-pill.draw { background: var(--draw); }
+.form-pill b { display: none; }
+
 .graph-panel { overflow: hidden; color: #e7eeeb; background: #111d1a; border: 1px solid #294039; border-radius: var(--radius); }
 .graph-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 18px; border-bottom: 1px solid #2b403a; }
 .graph-tools { display: flex; align-items: center; gap: 18px; }
@@ -265,6 +280,8 @@ select { width: 100%; min-height: 44px; padding: 8px 34px 8px 11px; color: var(-
 .sim-table { table-layout: fixed; min-width: 720px; }
 .sim-table .sim-num { width: 80px; }
 .sim-table .sim-num-narrow { width: 50px; }
+.sim-table .sim-rec { width: 30px; }
+.sim-table .sim-rec-wide { width: 50px; }
 .sim-table th, .sim-table td { padding: 9px 6px; font-size: 13px; white-space: nowrap; }
 .sim-table td { line-height: 18px; font-variant-numeric: tabular-nums; }
 .sim-table td:first-child { white-space: normal; }
@@ -382,7 +399,13 @@ footer { padding: 24px 0 38px; color: var(--muted); border-top: 1px solid var(--
   .phone-only { display: block; margin-top: 4px; }
   .rank { width: 30px; font-size: 15px; }
   .power strong { font-size: 18px; }
-  .power span:last-child { display: none; }
+  .league-table th, .league-table td { padding: 9px 6px; }
+  .league-table .pos { width: 26px; }
+  .league-table .form-head, .league-table td:last-child { padding-left: 6px; }
+  .form { gap: 2px; }
+  .form-pill { min-width: 17px; height: 17px; padding: 0; font-size: 10px; }
+  .form-pill b { display: inline; }
+  .form-pill span { display: none; }
   .projected-points { font-size: 17px; }
   .playoff-cell { min-width: 56px; }
   .result-date { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
@@ -415,7 +438,7 @@ footer { padding: 24px 0 38px; color: var(--muted); border-top: 1px solid var(--
   .sim-layout { gap: 16px; }
   .sim-results { order: -1; }
   .sim-table { min-width: 0; table-layout: auto; }
-  .sim-table .sim-num, .sim-table .sim-num-narrow { width: auto; }
+  .sim-table .sim-num, .sim-table .sim-num-narrow, .sim-table .sim-rec, .sim-table .sim-rec-wide { width: auto; }
   .sim-table th, .sim-table td { padding: 8px 5px; font-size: 12px; white-space: normal; }
   .sim-table .sim-phone-group-start { border-left: 2px solid #c9d3cc; }
   .sim-table .shift { display: block; width: fit-content; margin: 2px 0 0; }

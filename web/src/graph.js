@@ -61,6 +61,8 @@ function renderTopology(graph) {
 }
 
 export function renderResultGraph(graph) {
+  const RESULT_CAPTION = 'Hover a result or click a team. Box color is strength.';
+  const FLOW_CAPTION = 'Credit flows to the winner. Box size is share of credit.';
   const cycleStatus = document.querySelector('#cycle-status');
   const cycleTeamCount = graph.cycles.reduce((count, teams) => count + teams.length, 0);
   cycleStatus.textContent = graph.cycles.length
@@ -269,7 +271,7 @@ export function renderResultGraph(graph) {
     neighborhood.removeClass('faded');
     node.addClass('focused');
     node.connectedEdges().addClass('show-label neighborhood-label');
-    caption.textContent = `${node.data('label')}: showing ${node.connectedEdges().length} connected results. Click the background to clear.`;
+    caption.textContent = `${node.data('label')}: ${node.connectedEdges().length} results. Click the background to clear.`;
   }
 
   function setAllLabels(enabled) {
@@ -293,9 +295,7 @@ export function renderResultGraph(graph) {
     flowRanking.hidden = !isFlow;
     resultKey.hidden = isFlow;
     flowKey.hidden = !isFlow;
-    caption.textContent = isFlow
-      ? 'Arrowheads point toward the winner receiving credit. Node size is retained résumé share.'
-      : 'Hover a score for match details. Node size and fill represent opponent-adjusted strength.';
+    caption.textContent = isFlow ? FLOW_CAPTION : RESULT_CAPTION;
     runLayout();
   }
 
@@ -310,17 +310,13 @@ export function renderResultGraph(graph) {
     if (!showAllLabels) {
       graphView.edges().not('.neighborhood-label').removeClass('show-label');
     }
-    caption.textContent = currentMode === 'flow'
-      ? 'Arrowheads point toward the winner receiving credit. Node size is retained résumé share.'
-      : 'Hover a score for match details. Node size and fill represent opponent-adjusted strength.';
+    caption.textContent = currentMode === 'flow' ? FLOW_CAPTION : RESULT_CAPTION;
   });
   graphView.on('tap', 'node', (event) => focusNode(event.target));
   graphView.on('tap', (event) => {
     if (event.target === graphView) {
       clearFocus();
-      caption.textContent = graph.cycles.length
-        ? 'Cycle-safe circular layout. Click a team to reveal only its scores and opponents.'
-        : 'Hover a result or click a team to inspect its neighborhood.';
+      caption.textContent = RESULT_CAPTION;
     }
   });
   document.querySelectorAll('[data-graph-mode]').forEach((button) => {
@@ -330,8 +326,5 @@ export function renderResultGraph(graph) {
   });
   labelToggle.addEventListener('click', () => setAllLabels(!showAllLabels));
   setMode('results');
-  caption.textContent = graph.cycles.length
-    ? 'Cycle-safe circular layout. Click a team to reveal only its scores and opponents.'
-    : 'Hover a result or click a team to inspect its neighborhood.';
   return graphView;
 }

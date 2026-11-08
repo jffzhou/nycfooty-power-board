@@ -7,7 +7,7 @@ function teamLink(name) {
 function populateHeader(data) {
   const { metadata } = data;
   document.querySelector('#subtitle').textContent =
-    `Results through ${metadata.resultsThrough}. Opponent-adjusted ratings and forecasts for the Thursday 7v7 coed league at Tanahey Playground.`;
+    `Thursday 7v7 coed at Tanahey Playground. Results through ${metadata.resultsThrough}.`;
   document.querySelector('#source-link').href = metadata.sourceUrl;
   document.querySelector('#completed-count').textContent = metadata.completedCount;
   document.querySelector('#upcoming-count').textContent = metadata.upcomingCount;
@@ -15,25 +15,51 @@ function populateHeader(data) {
   document.querySelector('#draw-rate').textContent = percentage(metadata.drawRate);
   document.querySelector('#simulation-label').textContent = `${metadata.simulations.toLocaleString()} simulations`;
   document.querySelector('#generated-at').textContent =
-    `Generated ${metadata.generatedAt} from public LeagueApps data.`;
+    `Updated ${metadata.generatedAt}.`;
 }
 
-function renderRankings(teams) {
+const OUTCOME_CLASSES = { W: 'win', L: 'loss', D: 'draw' };
+
+function formPill(game) {
+  const score = `${game.teamScore}-${game.opponentScore}`;
+  const title = `W${game.week} ${score} vs ${game.opponent}${game.forfeit ? ' (forfeit)' : ''}`;
+  return `<span class="form-pill ${OUTCOME_CLASSES[game.outcome]}" title="${escapeHtml(title)}"><b>${game.outcome}</b><span>${score}</span></span>`;
+}
+
+function renderTable(table, playoffSpots) {
+  document.querySelector('#table-body').innerHTML = table.map((row) => {
+    const zone = row.position <= playoffSpots ? ' class="playoff"' : row.position === playoffSpots + 1 ? ' class="cut"' : '';
+    return `<tr${zone}>
+      <td class="pos">${row.position}</td>
+      <td>${teamLink(row.team)}<span class="phone-only sample">${row.played} PL &middot; ${row.wins}-${row.losses}-${row.draws} &middot; ${row.goalsFor}-${row.goalsAgainst}</span></td>
+      <td class="num mh">${row.played}</td>
+      <td class="num mh">${row.wins}</td>
+      <td class="num mh">${row.losses}</td>
+      <td class="num mh">${row.draws}</td>
+      <td class="num mh">${row.goalsFor}-${row.goalsAgainst}</td>
+      <td class="num">${row.goalDifference ? signed(row.goalDifference) : 0}</td>
+      <td class="num pts">${row.points}</td>
+      <td><div class="form">${row.form.map(formPill).join('')}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRankings(teams, table) {
+  const position = new Map(table.map((row) => [row.team, row.position]));
   const values = teams.map((team) => team.elo);
   const minimum = Math.min(...values) - 10;
   const maximum = Math.max(...values) + 10;
   document.querySelector('#rankings-body').innerHTML = teams.map((team) => {
     const sample = team.ratedGames === team.games
-      ? `${team.ratedGames} rated`
-      : `${team.ratedGames} rated / ${team.games} official`;
+      ? ''
+      : `<span class="sample">${team.ratedGames} of ${team.games} games rated</span>`;
     const width = 100 * (team.elo - minimum) / (maximum - minimum);
     return `<tr>
       <td class="rank">${String(team.rank).padStart(2, '0')}</td>
-      <td>${teamLink(team.name)}<span class="sample">${sample}</span></td>
-      <td class="power"><strong>${team.power.toFixed(1)}</strong><span>80% ${team.powerLow.toFixed(1)}–${team.powerHigh.toFixed(1)}</span><span>${team.elo.toFixed(0)} Elo-eq.</span></td>
-      <td class="record">${team.wins}-${team.losses}-${team.ties}</td>
-      <td class="record">${signed(team.goalDifference)}</td>
-      <td class="rating-bar-cell"><div class="rating-bar" title="${signed(team.expectedMarginVsAverage, 2)} expected goals vs average"><span style="width:${width.toFixed(1)}%;background:${team.color}"></span></div></td>
+      <td>${teamLink(team.name)}${sample}</td>
+      <td class="power"><strong>${team.power.toFixed(1)}</strong><span>${team.powerLow.toFixed(1)}–${team.powerHigh.toFixed(1)}</span></td>
+      <td class="record">${position.get(team.name)}</td>
+      <td class="rating-bar-cell"><div class="rating-bar" title="${signed(team.expectedMarginVsAverage, 2)} goals vs average"><span style="width:${width.toFixed(1)}%;background:${team.color}"></span></div></td>
     </tr>`;
   }).join('');
 }
@@ -185,9 +211,9 @@ function renderRecap(recap) {
   const verdict = season.modelLogLoss < season.coinFlipLogLoss ? 'ahead of' : 'behind';
   const chips = { favorite: ['good', 'Favorite won'], draw: ['', 'Draw'], upset: ['bad', 'Upset'] };
   const verdictText = (game) => {
-    if (game.verdict !== 'draw') return `Model gave this result <b>${percentage(game.actualProbability)}</b>`;
+    if (game.verdict !== 'draw') return `<b>${percentage(game.actualProbability)}</b> pre-game`;
     const [favorite, odds] = game.awayWin >= game.homeWin ? [game.awayTeam, game.awayWin] : [game.homeTeam, game.homeWin];
-    return `Favorite ${escapeHtml(favorite)} was <b>${percentage(odds)}</b> to win`;
+    return `${escapeHtml(favorite)} was <b>${percentage(odds)}</b> to win`;
   };
   const gameRows = recap.games.map((game) => `<div class="recap-game${game.gameId === recap.biggestUpset ? ' upset' : ''}">
       <div class="recap-score"><span>${escapeHtml(game.awayTeam)}</span><strong>${game.awayScore}&ndash;${game.homeScore}</strong><span>${escapeHtml(game.homeTeam)}</span></div>
@@ -197,12 +223,12 @@ function renderRecap(recap) {
   const weekRows = recap.byWeek.map((week) => `<tr><td>W${week.week}</td><td>${week.favoritesWon}&ndash;${week.draws}&ndash;${week.upsets}</td><td>${week.modelLogLoss.toFixed(3)}</td><td>${week.coinFlipLogLoss.toFixed(3)}</td></tr>`).join('');
   const upsetHeadline = upset
     ? `<strong>${escapeHtml(upset.awayTeam)} ${upset.awayScore}&ndash;${upset.homeScore} ${escapeHtml(upset.homeTeam)}</strong><small>${percentage(upset.actualProbability)} pre-game</small>`
-    : '<strong>None</strong><small>Every favorite won or drew</small>';
+    : '<strong>None</strong><small>No favorite lost</small>';
   container.innerHTML = `
     <div class="recap-headline">
       <div><span>Favorites won</span><strong>${latest.favoritesWon} of ${latest.games}</strong><small>${latest.draws} drawn, ${latest.upsets} lost</small></div>
       <div><span>Biggest upset</span>${upsetHeadline}</div>
-      <div><span>Season so far</span><strong>Model ${verdict} a coin flip</strong><small>${season.modelLogLoss.toFixed(3)} vs ${season.coinFlipLogLoss.toFixed(3)} log loss (lower is better); favorites won ${season.favoritesWon}, drew ${season.draws}, lost ${season.upsets}</small></div>
+      <div><span>Season</span><strong>Model ${verdict} a coin flip</strong><small>Log loss ${season.modelLogLoss.toFixed(3)} vs ${season.coinFlipLogLoss.toFixed(3)} &middot; favorites ${season.favoritesWon}-${season.draws}-${season.upsets} (W-D-L)</small></div>
     </div>
     <div class="recap-body">
       <div class="recap-games">${gameRows}</div>
@@ -213,9 +239,8 @@ function renderRecap(recap) {
 const TEAM_GAME_GROUPS = [
   ['result', 'Played', ''],
   ['upcoming', 'Upcoming', 'Forecast from current ratings'],
-  ['ghost', 'Never scheduled', 'Hypothetical forecast'],
+  ['ghost', 'Never scheduled', 'Hypothetical'],
 ];
-const OUTCOME_CLASSES = { W: 'win', L: 'loss', D: 'draw' };
 
 function teamGameRow(entry) {
   const when = entry.kind === 'ghost'
@@ -323,7 +348,7 @@ export function renderModelSwitch(bundle, modelId) {
       ? `${minus(Number(row.test_minus_margin))}<span class="sample">${minus(Number(row.test_minus_margin_low))} to ${minus(Number(row.test_minus_margin_high))}</span>`
       : '<span class="sample">–</span>';
     const seasonScore = isModel ? season[row.model]?.modelLogLoss : anySeason?.coinFlipLogLoss;
-    const blurb = isModel ? bundle.models[row.model].metadata.model.summary : 'Ignores team identity: assigns the season\'s draw rate to date (17% prior) to a draw and splits the remainder equally.';
+    const blurb = isModel ? bundle.models[row.model].metadata.model.summary : 'Ignores who is playing.';
     const classes = [row.model === modelId ? 'current' : '', isModel ? '' : 'reference'].filter(Boolean).join(' ');
     return `<tr${classes ? ` class="${classes}"` : ''}>
       <td><strong>${escapeHtml(isModel ? row.label : 'Coin flip')}</strong>${row.model === modelId ? '<span class="status-chip good">Showing</span>' : ''}<span class="sample wrap">${escapeHtml(blurb)}</span></td>
@@ -335,8 +360,8 @@ export function renderModelSwitch(bundle, modelId) {
   if (anySeason) {
     const winners = bundle.modelOrder.filter((id) => season[id] && season[id].modelLogLoss < anySeason.coinFlipLogLoss);
     document.querySelector('#method-verdict').textContent = winners.length
-      ? `This season, ${winners.map((id) => bundle.models[id].metadata.model.label).join(' and ')} ${winners.length === 1 ? 'has' : 'have'} a lower log loss than the coin flip so far. With ${anySeason.games} matches, the difference is not yet reliable.`
-      : `This season, no model has yet achieved a lower log loss than the coin flip, so individual match probabilities should be treated as approximate. All three models outperformed it clearly on past leagues, which suggests that this season's teams are unusually evenly matched. The season sample (${anySeason.games} matches) remains small.`;
+      ? `This season, ${winners.map((id) => bundle.models[id].metadata.model.label).join(' and ')} ${winners.length === 1 ? 'beats' : 'beat'} the coin flip, but ${anySeason.games} matches is too few to be sure.`
+      : `No model beats the coin flip this season yet (${anySeason.games} matches). All three beat it clearly on past leagues, so this season's teams look unusually even.`;
   }
 }
 
@@ -388,7 +413,8 @@ function renderResults(results) {
 
 export function renderDashboard(data) {
   populateHeader(data);
-  renderRankings(data.teams);
+  renderTable(data.table, data.simulator.playoffSpots);
+  renderRankings(data.teams, data.table);
   renderMatchup(data);
   renderScheduleStrength(data.teams);
   renderScheduleGaps(data.scheduleGaps, data.matchups);
