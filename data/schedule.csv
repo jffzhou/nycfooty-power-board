@@ -35,7 +35,7 @@ game_id,week,played_at,game_type,away_team,away_score,home_team,home_score,compl
 13852857,9,2026-10-29T19:35:00,Regular Season,Off in the shower,5,The Other Secret Team,1,True,False,Tanahey Playground (TAN),Played (regular time),
 13852858,9,2026-10-29T20:20:00,Regular Season,HEYTEA FC,1,Say My Neymar,0,True,False,Tanahey Playground (TAN),Played (regular time),
 13852859,9,2026-10-29T21:05:00,Regular Season,Pacific Penguins FC,0,FA Rat United FC,0,True,False,Tanahey Playground (TAN),Played (regular time),
-13852860,10,2026-11-05T18:45:00,Regular Season,Runny Gyoks FC,,FA Rat United FC,,False,False,Tanahey Playground (TAN),,
-13852861,10,2026-11-05T19:35:00,Regular Season,Gowanus Canal Shrimps,,Rat City FC,,False,False,Tanahey Playground (TAN),,
-13852862,10,2026-11-05T20:20:00,Regular Season,Fearless United,,HEYTEA FC,,False,False,Tanahey Playground (TAN),,
-13852863,10,2026-11-05T21:05:00,Regular Season,The Other Secret Team,,Say My Neymar,,False,False,Tanahey Playground (TAN),,
+13852860,10,2026-11-05T18:45:00,Regular Season,Runny Gyoks FC,5,FA Rat United FC,2,True,False,Tanahey Playground (TAN),Played (regular time),
+13852861,10,2026-11-05T19:35:00,Regular Season,Gowanus Canal Shrimps,0,Rat City FC,1,True,False,Tanahey Playground (TAN),Played (regular time),
+13852862,10,2026-11-05T20:20:00,Regular Season,Fearless United,2,HEYTEA FC,4,True,False,Tanahey Playground (TAN),Played (regular time),
+13852863,10,2026-11-05T21:05:00,Regular Season,The Other Secret Team,0,Say My Neymar,3,True,True,Tanahey Playground (TAN),Played (regular time),-2pts The Other Secret Team FORFEIT w/ insufficient notice

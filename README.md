@@ -56,7 +56,10 @@ Open `dashboard.html` directly in a browser. At phone widths (640px and below)
 the layout hides secondary table columns and stacks the pairing table into
 cards. Each refresh writes:
 
-- `dashboard.html`: tabbed dashboard. Rankings (official table in LeagueApps
+- `dashboard.html`: tabbed dashboard. Playoffs (semifinals 1v4 and 2v3 from the
+  official top four, the four possible finals, and title odds, computed
+  exactly from the selected model and equal to the season forecast once the
+  regular season ends), Rankings (official table in LeagueApps
   order with PL/W/L/D/goals/GD/PTS and last-five form, power table with each
   team's table position, rating paths),
   Teams (each team's results with margin vs expectation, upcoming forecasts,

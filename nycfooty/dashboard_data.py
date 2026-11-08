@@ -372,6 +372,57 @@ def build_dashboard_data(
         for position, team in enumerate(table_order, start=1)
     ]
 
+    seeds = table_order[:4]
+    playoffs = None
+    if len(seeds) == 4:
+        reach_final = {}
+        semifinals = []
+        for high, low in ((seeds[0], seeds[3]), (seeds[1], seeds[2])):
+            win, draw, loss = fitted.probabilities(high, low)
+            reach_final[high] = fitted.knockout(high, low)
+            reach_final[low] = fitted.knockout(low, high)
+            semifinals.append(
+                {"high": high, "low": low, "win": win, "draw": draw, "loss": loss, "highAdvance": reach_final[high]}
+            )
+        champion = dict.fromkeys(seeds, 0.0)
+        finals = []
+        for upper in (seeds[0], seeds[3]):
+            for lower in (seeds[1], seeds[2]):
+                meeting = reach_final[upper] * reach_final[lower]
+                win, draw, loss = fitted.probabilities(upper, lower)
+                upper_title = fitted.knockout(upper, lower)
+                champion[upper] += meeting * upper_title
+                champion[lower] += meeting * fitted.knockout(lower, upper)
+                finals.append(
+                    {
+                        "first": upper,
+                        "second": lower,
+                        "probability": meeting,
+                        "win": win,
+                        "draw": draw,
+                        "loss": loss,
+                        "firstTitle": upper_title,
+                    }
+                )
+        playoffs = {
+            "seasonComplete": not any(
+                not game.completed for game in games if game.game_type.lower() == "regular season"
+            ),
+            "teams": [
+                {
+                    "seed": seed,
+                    "team": team,
+                    "color": colors[team],
+                    "power": power(team),
+                    "finalProbability": reach_final[team],
+                    "championProbability": champion[team],
+                }
+                for seed, team in enumerate(seeds, start=1)
+            ],
+            "semifinals": semifinals,
+            "finals": sorted(finals, key=lambda row: row["probability"], reverse=True),
+        }
+
     component_ids = {
         component: f"component-{index}"
         for index, component in enumerate(graph.components)
@@ -626,6 +677,7 @@ def build_dashboard_data(
         },
         "teams": team_rows,
         "table": league_table,
+        "playoffs": playoffs,
         "ratingHistory": {
             "labels": ["Start" if week == 0 else f"W{week}" for week in weeks],
             "series": [

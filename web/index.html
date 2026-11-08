@@ -30,7 +30,8 @@
 
   <nav class="tabs" aria-label="Dashboard sections">
     <div class="shell tab-list" role="tablist">
-      <button type="button" role="tab" id="tab-rankings" data-tab="rankings" aria-controls="panel-rankings" aria-selected="true">Rankings</button>
+      <button type="button" role="tab" id="tab-playoffs" data-tab="playoffs" aria-controls="panel-playoffs" aria-selected="true">Playoffs</button>
+      <button type="button" role="tab" id="tab-rankings" data-tab="rankings" aria-controls="panel-rankings" aria-selected="false">Rankings</button>
       <button type="button" role="tab" id="tab-teams" data-tab="teams" aria-controls="panel-teams" aria-selected="false">Teams</button>
       <button type="button" role="tab" id="tab-standings" data-tab="standings" aria-controls="panel-standings" aria-selected="false">Standings race</button>
       <button type="button" role="tab" id="tab-simulator" data-tab="simulator" aria-controls="panel-simulator" aria-selected="false">Simulator</button>
@@ -41,6 +42,33 @@
   </nav>
 
   <main class="shell">
+    <div class="tab-panel" id="panel-playoffs" role="tabpanel" aria-labelledby="tab-playoffs">
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Playoffs</span><h2>Semifinals</h2></div>
+        <p class="section-note" id="playoff-note"></p>
+      </div>
+      <div class="po-grid" id="semifinals"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Champion</span><h2>Title odds</h2></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th data-short="#">Seed</th><th>Team</th><th class="mh">Power</th><th data-short="Final">Reach final</th><th>Champion</th></tr></thead>
+        <tbody id="title-body"></tbody>
+      </table></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div><span class="kicker">Final</span><h2>Possible finals</h2></div>
+      </div>
+      <div class="po-grid" id="finals"></div>
+    </section>
+    </div>
+
     <div class="tab-panel" id="panel-rankings" role="tabpanel" aria-labelledby="tab-rankings">
     <section>
       <div class="section-head">

@@ -458,6 +458,26 @@ class DashboardDataTests(unittest.TestCase):
 
         self.assertEqual([(row["position"], row["team"]) for row in table], [(1, "C"), (2, "A"), (3, "D"), (4, "B")])
 
+    def test_playoffs_with_completed_regular_season(self) -> None:
+        """The playoff page's bracket odds must equal the season forecast's under every model."""
+        fixture = replace(parse_schedule(SCHEDULE_HTML)[0], note="")
+        results = [("A", "B", 3, 0), ("C", "D", 2, 1), ("A", "C", 1, 1), ("B", "D", 2, 0), ("A", "D", 4, 1), ("E", "B", 1, 2), ("C", "E", 3, 0)]
+        games = [
+            replace(fixture, game_id=str(index), away_team=away, home_team=home, away_score=away_score, home_score=home_score)
+            for index, (away, home, away_score, home_score) in enumerate(results)
+        ]
+        for model, choice in MODEL_CHOICES.items():
+            with self.subTest(model=model):
+                forecast = forecast_final_standings(games, simulations=10, model=choice.parameters)
+                playoffs = build_dashboard_data(
+                    games, [], forecast, generated_at=datetime(2026, 1, 1), simulations=10, model=model
+                )["playoffs"]
+
+                expected = {item.team: (item.final_probability, item.champion_probability) for item in forecast}
+                for row in playoffs["teams"]:
+                    self.assertAlmostEqual(row["finalProbability"], expected[row["team"]][0])
+                    self.assertAlmostEqual(row["championProbability"], expected[row["team"]][1])
+
 
 class SeasonForecastTests(unittest.TestCase):
     def test_seeded_forecast_is_reproducible(self) -> None:

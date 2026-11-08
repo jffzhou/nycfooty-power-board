@@ -411,8 +411,55 @@ function renderResults(results) {
   </tr>`).join('');
 }
 
+function playoffCard(label, first, second, odds, firstAdvance, seedOf) {
+  const [win, draw, loss] = odds;
+  const side = (team, chance) => `<div class="po-team"><span class="seed">${seedOf.get(team)}</span>${teamLink(team)}<strong>${percentage(chance)}</strong></div>`;
+  return `<article class="po-game">
+    <header>${label}</header>
+    ${side(first, firstAdvance)}
+    ${side(second, 1 - firstAdvance)}
+    <div class="probability-bar"><span class="away" style="width:${percentage(win, 1)}"></span><span class="draw" style="width:${percentage(draw, 1)}"></span><span class="home" style="width:${percentage(loss, 1)}"></span></div>
+    <div class="probability-labels"><span><b>${percentage(win)}</b> win</span><span><b>${percentage(draw)}</b> draw</span><span><b>${percentage(loss)}</b> win</span></div>
+  </article>`;
+}
+
+function renderPlayoffs(playoffs) {
+  if (!playoffs) return;
+  const seedOf = new Map(playoffs.teams.map((row) => [row.team, row.seed]));
+  document.querySelector('#playoff-note').textContent = playoffs.seasonComplete
+    ? 'Seeds are final. A draw counts as 50/50.'
+    : 'If the season ended today. A draw counts as 50/50.';
+  document.querySelector('#semifinals').innerHTML = playoffs.semifinals.map((game) => playoffCard(
+    `${seedOf.get(game.high)} v ${seedOf.get(game.low)}`,
+    game.high,
+    game.low,
+    [game.win, game.draw, game.loss],
+    game.highAdvance,
+    seedOf,
+  )).join('');
+  document.querySelector('#finals').innerHTML = playoffs.finals.map((final) => playoffCard(
+    `${percentage(final.probability)} chance of this final`,
+    final.first,
+    final.second,
+    [final.win, final.draw, final.loss],
+    final.firstTitle,
+    seedOf,
+  )).join('');
+  const best = Math.max(...playoffs.teams.map((row) => row.championProbability));
+  document.querySelector('#title-body').innerHTML = [...playoffs.teams]
+    .sort((first, second) => second.championProbability - first.championProbability)
+    .map((row) => `<tr>
+      <td class="rank">${row.seed}</td>
+      <td>${teamLink(row.team)}</td>
+      <td class="mh">${row.power.toFixed(1)}</td>
+      <td>${percentage(row.finalProbability)}</td>
+      <td class="playoff-cell"><strong>${percentage(row.championProbability)}</strong><div class="playoff-bar"><span style="width:${(100 * row.championProbability / best).toFixed(1)}%;background:${row.color}"></span></div></td>
+    </tr>`).join('');
+}
+
 export function renderDashboard(data) {
   populateHeader(data);
+  renderPlayoffs(data.playoffs);
   renderTable(data.table, data.simulator.playoffSpots);
   renderRankings(data.teams, data.table);
   renderMatchup(data);

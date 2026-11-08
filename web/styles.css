@@ -273,6 +273,15 @@ select { width: 100%; min-height: 44px; padding: 8px 34px 8px 11px; color: var(-
 .recap-verdict { margin-top: 7px; color: var(--muted); font-size: 12px; }
 .recap-table th, .recap-table td { padding: 9px 12px; font-size: 13px; }
 
+.po-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.po-game { padding: 14px 18px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.po-game header { margin-bottom: 4px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.po-team { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 0; font-size: 16px; }
+.po-team + .po-team { border-top: 1px solid var(--line); }
+.po-team strong { font-family: Georgia, serif; font-size: 24px; }
+.po-game .probability-bar { margin-top: 10px; }
+.seed { display: inline-grid; place-items: center; width: 24px; height: 24px; color: #fff; background: var(--field-dark); border-radius: 3px; font-size: 12px; font-weight: 800; }
+
 .sim-note { max-width: 900px; margin-bottom: 18px; }
 .sim-reset { min-height: 36px; padding: 6px 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 800; }
 .sim-layout { display: grid; grid-template-columns: minmax(340px, 0.75fr) minmax(0, 1.6fr); align-items: start; gap: 22px; }
@@ -364,6 +373,7 @@ footer { padding: 24px 0 38px; color: var(--muted); border-top: 1px solid var(--
   .team-game-outcome { justify-self: start; }
   .sim-layout { grid-template-columns: 1fr; }
   .recap-headline, .recap-body { grid-template-columns: 1fr; }
+  .po-grid { grid-template-columns: 1fr; }
   .recap-headline div { border-left: 0; border-top: 1px solid #2b403a; }
   .sim-results { position: static; }
 }
